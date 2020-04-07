@@ -6,7 +6,8 @@ Right now the notebooks are all for the RoBERTa model (a variant of BERT) traine
 Todo:
 - [x]  Finish writing notebook to train model
 - [x]  Finish notebook to preload and run predictions on a single molecule —> test if HuggingFace works
-- [ ]  Train RoBERTa model for 10 epochs
-- [ ]  Combine train + test notebooks
+- [x]  Train RoBERTa model until convergence
+- [x]  Upload weights onto HuggingFace
+- [ ]  Create tutorial using evaluation + fine-tuning notebook.
 - [ ]  Create documentation + writing, visualizations for notebook.
 - [ ]  Setup PR into DeepChem
