@@ -20,5 +20,5 @@ Todo:
 - [x]  Train RoBERTa model until convergence
 - [x]  Upload weights onto HuggingFace
 - [x]  Create tutorial using evaluation + fine-tuning notebook.
-- [ ]  Create documentation + writing, visualizations for notebook.
-- [ ]  Setup PR into DeepChem
+- [x]  Create documentation + writing, visualizations for notebook.
+- [x]  Setup PR into DeepChem
