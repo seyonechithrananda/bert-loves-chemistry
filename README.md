@@ -1,7 +1,7 @@
 # ChemBERTa
 ChemBERTa: A collection of BERT-like models applied to chemical SMILES data for drug design, chemical modelling, and property prediction.
 
-[Tutorial](https://github.com/deepchem/deepchem/blob/master/examples/tutorials/22_Transfer_Learning_With_HuggingFace_tox21.ipynb)
+[Tutorial](https://github.com/deepchem/deepchem/blob/master/examples/tutorials/22_Transfer_Learning_With_HuggingFace_tox21.ipynb) <br />
 [Abstract](https://t.co/dkA5rMvYrE?amp=1)
 
 Right now the notebooks are all for the RoBERTa model (a variant of BERT) trained on the task of masked-language modelling (MLM). Training was done over 5 epochs until loss converged to around 0.28. The model weights for ChemBERTA pre-trained on ZINC 100k are available using [HuggingFace](https://huggingface.co/seyonec/ChemBERTa-zinc-base-v1), and the ZINC 250k version is available [here](https://huggingface.co/seyonec/ChemBERTa-zinc250k-v1). We expect to release larger models pre-trained on even larger subsets of ZINC, CHEMBL, and Enamine in the near future. 
