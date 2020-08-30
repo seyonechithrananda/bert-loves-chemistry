@@ -1,5 +1,5 @@
 # ChemBERTa
-ChemBERTa: A collection of BERT-like models applied to chemical SMILES data for drug design, chemical modelling, and property prediction.
+ChemBERTa: A collection of BERT-like models applied to chemical SMILES data for drug design, chemical modelling, and property prediction. To be presented at [Baylearn](https://baylearn2020.splashthat.com/) and the [Royal Society of Chemistry's Chemical Science Symposium](https://www.rsc.org/events/detail/42791/chemical-science-symposium-2020-how-can-machine-learning-and-autonomy-accelerate-chemistry).
 
 [Tutorial](https://github.com/deepchem/deepchem/blob/master/examples/tutorials/22_Transfer_Learning_With_HuggingFace_tox21.ipynb) <br />
 [Abstract](https://t.co/dkA5rMvYrE?amp=1)
@@ -12,6 +12,7 @@ This library is currently primarily a set of notebooks with our pre-training and
 
 I hope this is of use to developers, students and researchers exploring the use of transformers and the attention mechanism for chemistry!
 
+# Example
 You can load the tokenizer + model for MLM prediction tasks using the following code:
 
 ```
@@ -25,7 +26,7 @@ fill_mask = pipeline('fill-mask', model=model, tokenizer=tokenizer)
 ```
 The abstract for this method is detailed [here](https://t.co/dkA5rMvYrE?amp=1). We expect to release a full paper on Arxiv in end-August.
 
-Todo:
+# Todo:
 - [ ]  Official DeepChem implementation of ChemBERTa using model API (In progress)
 - [ ]  Open-source attention visualization suite used in paper (After formal publication - Beginning of September).
 - [ ]  Release larger pre-trained models, and support for a wider array of property prediction tasks (BBBP, etc). - (In progress)
