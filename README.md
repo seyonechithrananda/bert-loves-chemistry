@@ -31,8 +31,7 @@ The abstract for this method is detailed [here](https://t.co/dkA5rMvYrE?amp=1). 
 # Todo:
 - [ ]  Official DeepChem implementation of ChemBERTa using model API (In progress)
 - [ ]  Open-source attention visualization suite used in paper (After formal publication - Beginning of September).
-- [ ]  Release larger pre-trained models, and support for a wider array of property prediction tasks (BBBP, etc). - (In progress)
-
+- [x]  Release larger pre-trained models, and support for a wider array of property prediction tasks (BBBP, etc). - See [HuggingFace](https://huggingface.co/seyonec)
 - [x]  Finish writing notebook to train model
 - [x]  Finish notebook to preload and run predictions on a single molecule —> test if HuggingFace works
 - [x]  Train RoBERTa model until convergence
