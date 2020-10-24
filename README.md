@@ -4,15 +4,19 @@ ChemBERTa: A collection of BERT-like models applied to chemical SMILES data for 
 [Tutorial](https://github.com/deepchem/deepchem/blob/master/examples/tutorials/22_Transfer_Learning_With_HuggingFace_tox21.ipynb) <br />
 [Arxiv Paper](https://arxiv.org/abs/2010.09885) <br />
 [Poster](https://chemsci20.ipostersessions.com/Default.aspx?s=99-39-E6-B6-B0-0E-E1-D8-FB-66-1A-44-DC-A3-43-BA) <br />
-[Abstract](https://t.co/dkA5rMvYrE?amp=1)
+[Abstract](https://t.co/dkA5rMvYrE?amp=1) <br />
+[BibTex](https://scholar.googleusercontent.com/scholar.bib?q=info:FzDMp7nctLUJ:scholar.google.com/&output=citation&scisdr=CgWWnePlEM-dmmZXtDE:AAGBfm0AAAAAX5RSrDGmJTVdPMFfzRSs5UY9lD4iRvvd&scisig=AAGBfm0AAAAAX5RSrGbFzGg583aNAYQw1Lap1K79xkEm&scisf=4&ct=citation&cd=-1&hl=en)
 
 License: MIT License
 
 Right now the notebooks are all for the RoBERTa model (a variant of BERT) trained on the task of masked-language modelling (MLM). Training was done over 10 epochs until loss converged to around 0.26 on the ZINC 250k dataset. The model weights for ChemBERTA pre-trained on various datasets (ZINC 100k, ZINC 250k, PubChem 100k, PubChem 250k, PubChem 1M, PubChem 10M) are available using [HuggingFace](https://huggingface.co/seyonec). We expect to continue to release larger models pre-trained on even larger subsets of ZINC, CHEMBL, and PubChem in the near future. 
 
-This library is currently primarily a set of notebooks with our pre-training and fine-tuning setup, and will be updated soon with model implementation + attention visualization code, likely after the Arxiv publication. Stay tuned!
+This library is currently primarily a set of notebooks with our pre-training and fine-tuning setup, and will be updated soon with model implementation + attention visualization code, likely after the Arxiv publication. Stay tuned! 
 
 I hope this is of use to developers, students and researchers exploring the use of transformers and the attention mechanism for chemistry!
+
+# Citing Our Work
+Please cite ChemBERTa's [ArXiv](https://arxiv.org/abs/2010.09885) paper if you have used these models, notebooks, or examples in any way. The link to the BibTex is available [here](https://scholar.googleusercontent.com/scholar.bib?q=info:FzDMp7nctLUJ:scholar.google.com/&output=citation&scisdr=CgWWnePlEM-dmmZXtDE:AAGBfm0AAAAAX5RSrDGmJTVdPMFfzRSs5UY9lD4iRvvd&scisig=AAGBfm0AAAAAX5RSrGbFzGg583aNAYQw1Lap1K79xkEm&scisf=4&ct=citation&cd=-1&hl=en).
 
 # Example
 You can load the tokenizer + model for MLM prediction tasks using the following code:
