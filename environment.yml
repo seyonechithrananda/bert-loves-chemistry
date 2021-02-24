@@ -1,0 +1,30 @@
+name: chemberta_env
+channels:
+  - conda-forge
+  - pytorch
+  - rdkit
+dependencies:
+  - absl-py
+  - ipython
+  - jupyterlab
+  - matplotlib
+  - numpy
+  - pandas
+  - pip
+  - python=3.8
+  - pytorch
+  - rdkit
+  - regex
+  - s3fs
+  - scikit-learn
+  - scipy
+  - seaborn
+  - torchvision
+  - tqdm
+  - transformers
+  - wandb
+  - pip:
+    - datasets
+    - deepchem>=2.4.0rc1.dev20200916050731
+    - simpletransformers
+    - tensorflow>=2.0
