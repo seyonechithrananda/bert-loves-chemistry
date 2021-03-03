@@ -71,20 +71,9 @@ class RawTextDataset(Dataset):
         return example
 
 # Main training script
-
 wandb.login()
 
-#verify file length
-fname = 'pubchem-10m.txt'
-def file_len(fname):
-    with open(fname) as f:
-        for i, l in enumerate(f):
-            pass
-    return i + 1
-
-print(file_len(fname))
-
-torch.cuda.is_available() #checking if CUDA + Colab GPU works
+is_gpu = torch.cuda.is_available()
 
 config = RobertaConfig(
     vocab_size=52_000,
@@ -96,17 +85,11 @@ config = RobertaConfig(
 
 tokenizer = RobertaTokenizerFast.from_pretrained("seyonec/SMILES_tokenized_PubChem_shard00_160k", max_len=512)
 
-# test
-tokenizer.encode("[O-][N+](=O)c1cnc(s1)Sc1nnc(s1)N")
 
 model = RobertaForMaskedLM(config=config)
 model.num_parameters()
 
 dataset = RawTextDataset(tokenizer=tokenizer, file_path="pubchem-10m.txt", block_size=512)
-
-print(dataset[0])
-# CN(c1ccccc1)c1ccccc1C(=O)NCC1(O)CCOCC1
-tokenizer(str('CN(c1ccccc1)c1ccccc1C(=O)NCC1(O)CCOCC1'), add_special_tokens=True, truncation=True, max_length=128)
 
 
 data_collator = DataCollatorForLanguageModeling(
@@ -118,10 +101,10 @@ training_args = TrainingArguments(
     output_dir="PubChem_10M_SMILES_Tokenizer",
     overwrite_output_dir=True,
     num_train_epochs=10,
-    per_gpu_train_batch_size=64,
+    per_device_train_batch_size=64,
     save_steps=10_000,
     save_total_limit=2,
-    fp16 = True,
+    fp16 = is_gpu, # fp16 only works on CUDA devices
 )
 
 trainer = Trainer(
