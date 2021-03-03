@@ -9,6 +9,7 @@ dependencies:
   - jupyterlab
   - matplotlib
   - numpy
+  - nlp
   - pandas
   - pip
   - python=3.8
