@@ -7,27 +7,26 @@ Original file is located at
     https://colab.research.google.com/drive/15G0iwuxsr4xrMFSnjXxfmU94utPn1Zvm
 
 Requirements:
-- !pip install transformers
-- !pip install wandb
-- !pip install nlp
-
-PyTorch (latest should be fine)
-
+- transformers
+- wandb
+- nlp
+- torch
 """
 
 
 import transformers
-
 import torch
-
 import wandb
-from transformers import RobertaConfig
-from transformers import RobertaTokenizerFast
-from transformers import RobertaForMaskedLM
-from torch.utils.data import Dataset
+from transformers import (
+    RobertaConfig,
+    RobertaTokenizerFast,
+    RobertaForMaskedLM,
+    DataCollatorForLanguageModeling,
+    Trainer,
+    TrainingArguments,
+)
 from nlp import load_dataset
-from transformers import DataCollatorForLanguageModeling
-from transformers import Trainer, TrainingArguments
+from torch.utils.data import Dataset
 
 class RawTextDataset(Dataset):
     """
@@ -37,7 +36,7 @@ class RawTextDataset(Dataset):
     Examples
     --------
     >>> from raw_text_dataset import RawTextDataset
-    >>> dataset = SmilesRawTextDataset(tokenizer=tokenizer, file_path="shard_00_selfies.txt", block_size=512)
+    >>> dataset = RawTextDataset(tokenizer=tokenizer, file_path="shard_00_selfies.txt", block_size=512)
     Downloading: 100%
     1.52k/1.52k [00:03<00:00, 447B/s]
     Using custom data configuration default
@@ -70,73 +69,73 @@ class RawTextDataset(Dataset):
         example = self.preprocess(line)
         return example
 
-# Main training script
 
-wandb.login()
+def main():
+    # Main training script
 
-#verify file length
-fname = 'pubchem-10m.txt'
-def file_len(fname):
-    with open(fname) as f:
-        for i, l in enumerate(f):
-            pass
-    return i + 1
+    wandb.login()
 
-print(file_len(fname))
+    #verify file length
+    fname = 'pubchem-10m.txt'
+    def file_len(fname):
+        with open(fname) as f:
+            for i, l in enumerate(f):
+                pass
+        return i + 1
 
-torch.cuda.is_available() #checking if CUDA + Colab GPU works
+    print(file_len(fname))
 
-config = RobertaConfig(
-    vocab_size=52_000,
-    max_position_embeddings=512,
-    num_attention_heads=12,
-    num_hidden_layers=6,
-    type_vocab_size=1,
-)
+    torch.cuda.is_available() #checking if CUDA + Colab GPU works
 
-tokenizer = RobertaTokenizerFast.from_pretrained("seyonec/SMILES_tokenized_PubChem_shard00_160k", max_len=512)
+    config = RobertaConfig(
+        vocab_size=52_000,
+        max_position_embeddings=512,
+        num_attention_heads=12,
+        num_hidden_layers=6,
+        type_vocab_size=1,
+    )
 
-# test
-tokenizer.encode("[O-][N+](=O)c1cnc(s1)Sc1nnc(s1)N")
+    tokenizer = RobertaTokenizerFast.from_pretrained("seyonec/SMILES_tokenized_PubChem_shard00_160k", max_len=512)
 
-model = RobertaForMaskedLM(config=config)
-model.num_parameters()
+    # test
+    tokenizer.encode("[O-][N+](=O)c1cnc(s1)Sc1nnc(s1)N")
 
-dataset = RawTextDataset(tokenizer=tokenizer, file_path="pubchem-10m.txt", block_size=512)
+    model = RobertaForMaskedLM(config=config)
+    model.num_parameters()
 
-print(dataset[0])
-# CN(c1ccccc1)c1ccccc1C(=O)NCC1(O)CCOCC1
-tokenizer(str('CN(c1ccccc1)c1ccccc1C(=O)NCC1(O)CCOCC1'), add_special_tokens=True, truncation=True, max_length=128)
+    dataset = RawTextDataset(tokenizer=tokenizer, file_path="pubchem-10m.txt", block_size=512)
+
+    data_collator = DataCollatorForLanguageModeling(
+        tokenizer=tokenizer, mlm=True, mlm_probability=0.15
+    )
+
+    training_args = TrainingArguments(
+        output_dir="PubChem_10M_SMILES_Tokenizer",
+        overwrite_output_dir=True,
+        num_train_epochs=10,
+        per_gpu_train_batch_size=64,
+        save_steps=10_000,
+        save_total_limit=2,
+        fp16 = True,
+    )
+
+    trainer = Trainer(
+        model=model,
+        args=training_args,
+        data_collator=data_collator,
+        train_dataset=dataset,
+    )
+
+    trainer.train()
+    trainer.save_model("PubChem_10M_SMILES_Tokenizer")
 
 
-data_collator = DataCollatorForLanguageModeling(
-    tokenizer=tokenizer, mlm=True, mlm_probability=0.15
-)
-
-
-training_args = TrainingArguments(
-    output_dir="PubChem_10M_SMILES_Tokenizer",
-    overwrite_output_dir=True,
-    num_train_epochs=10,
-    per_gpu_train_batch_size=64,
-    save_steps=10_000,
-    save_total_limit=2,
-    fp16 = True,
-)
-
-trainer = Trainer(
-    model=model,
-    args=training_args,
-    data_collator=data_collator,
-    train_dataset=dataset,
-)
-
-
-trainer.train()
-trainer.save_model("PubChem_10M_SMILES_Tokenizer")
+if __name__ == "__main__":
+    main()
 
 """# Methods for preventing RuntimeError
 
-- reduce per_gpu_train_batch_size to 16
-- reduce seq_length to 128 or below (recommended to be 128 minimum just in case)
+- reduce per_gpu_train_batch_size to 16/32 (longer training time)
+- reduce seq_length to 128 or below (recommended to be 128 minimum)
 """
+
