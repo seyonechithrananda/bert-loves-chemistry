@@ -1,11 +1,7 @@
-# -*- coding: utf-8 -*-
+""" Script for training a Roberta Masked-Language Model
+Usage:
+    python train_roberta_mlm.py --dataset_path=<DATASET_PATH> --output_dir=<OUTPUT_DIR> --model_name=<MODEL_NAME>
 """
-
-Methods for preventing RuntimeError
-- reduce per_gpu_train_batch_size to 16
-- reduce seq_length to 128 or below (recommended to be 128 minimum just in case)
-"""
-
 
 from absl import app
 from absl import flags
@@ -46,14 +42,12 @@ flags.DEFINE_string(name="model_name", default="PubChem_10M_SMILES_Tokenizer", h
 # MLM params
 flags.DEFINE_float(name="mlm_probability", default=0.15, lower_bound=0.0, upper_bound=1.0, help="")
 
-
 # Train params
 flags.DEFINE_boolean(name="overwrite_output_dir", default=True, help="")
 flags.DEFINE_integer(name="num_train_epochs", default=10, help="")
 flags.DEFINE_integer(name="per_device_train_batch_size", default=64, help="")
 flags.DEFINE_integer(name="save_steps", default=10_000, help="")
 flags.DEFINE_integer(name="save_total_limit", default=2, help="")
-
 
 
 def main(argv):
