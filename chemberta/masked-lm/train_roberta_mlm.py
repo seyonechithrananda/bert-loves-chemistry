@@ -6,7 +6,7 @@ Usage [SMILES tokenizer]:
 Usage [BPE tokenizer]:
     python train_roberta_mlm.py --dataset_path=<DATASET_PATH> --output_dir=<OUTPUT_DIR> --model_name=<MODEL_NAME> --tokenizer_type=bpe
 """
-
+import os
 from absl import app
 from absl import flags
 
@@ -39,6 +39,7 @@ flags.DEFINE_integer(name="type_vocab_size", default=1, help="")
 flags.DEFINE_enum(name="tokenizer_type", default="smiles", enum_values=["smiles", "bpe", "SMILES", "BPE"], help="")
 flags.DEFINE_string(name="tokenizer_path", default="", help="")
 flags.DEFINE_integer(name="BPE_min_frequency", default=2, help="")
+flags.DEFINE_string(name="output_tokenizer_dir", default="tokenizer_dir", help="")
 flags.DEFINE_integer(name="max_tokenizer_len", default=512, help="")
 flags.DEFINE_integer(name="tokenizer_block_size", default=512, help="")
 
@@ -71,13 +72,21 @@ def main(argv):
         num_hidden_layers=FLAGS.num_hidden_layers,
         type_vocab_size=FLAGS.type_vocab_size,
     )
-
-    if FLAGS.tokenizer_type.upper() == "BPE" and not FLAGS.tokenizer_path:
+    
+    if FLAGS.tokenizer_path:
+        tokenizer_path = FLAGS.tokenizer_path
+    elif FLAGS.tokenizer_type.upper() == "BPE":
+        tokenizer_path = FLAGS.output_tokenizer_dir
+        if not os.path.isdir(tokenizer_path):
+            os.makedirs(tokenizer_path)
+        
         tokenizer = ByteLevelBPETokenizer()
         tokenizer.train(files=FLAGS.dataset_path, vocab_size=FLAGS.vocab_size, min_frequency=FLAGS.BPE_min_frequency, special_tokens=["<s>","<pad>","</s>","<unk>","<mask>"])
-
+        tokenizer.save_model(tokenizer_path)
     else:
-        tokenizer = RobertaTokenizerFast.from_pretrained(FLAGS.tokenizer_path, max_len=FLAGS.max_tokenizer_len)
+        print("Please provide a tokenizer path if using the SMILES tokenizer")
+
+    tokenizer = RobertaTokenizerFast.from_pretrained(tokenizer_path, max_len=FLAGS.max_tokenizer_len)
 
     model = RobertaForMaskedLM(config=config)
     model.num_parameters()
