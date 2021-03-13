@@ -15,8 +15,6 @@ from transformers import RobertaConfig
 from transformers import RobertaTokenizerFast
 from transformers import RobertaForMaskedLM
 
-from data_utils import RawTextDataset
-
 from transformers import DataCollatorForLanguageModeling
 from transformers import Trainer, TrainingArguments
 
