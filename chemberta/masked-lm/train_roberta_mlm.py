@@ -1,6 +1,10 @@
 """ Script for training a Roberta Masked-Language Model
-Usage:
-    python train_roberta_mlm.py --dataset_path=<DATASET_PATH> --output_dir=<OUTPUT_DIR> --model_name=<MODEL_NAME>
+
+Usage [SMILES tokenizer]:
+    python train_roberta_mlm.py --dataset_path=<DATASET_PATH> --output_dir=<OUTPUT_DIR> --model_name=<MODEL_NAME> --tokenizer=smiles --tokenizer_path="seyonec/SMILES_tokenized_PubChem_shard00_160k"
+    
+Usage [BPE tokenizer]:
+    python train_roberta_mlm.py --dataset_path=<DATASET_PATH> --output_dir=<OUTPUT_DIR> --model_name=<MODEL_NAME> --tokenizer=bpe
 """
 
 from absl import app
@@ -20,6 +24,8 @@ from chemberta.utils.raw_text_dataset import RawTextDataset
 from transformers import DataCollatorForLanguageModeling
 from transformers import Trainer, TrainingArguments
 
+from tokenizers import ByteLevelBPETokenizer
+
 FLAGS = flags.FLAGS
 
 # RobertaConfig params
@@ -30,9 +36,12 @@ flags.DEFINE_integer(name="num_hidden_layers", default=6, help="")
 flags.DEFINE_integer(name="type_vocab_size", default=1, help="")
 
 # Tokenizer params
-flags.DEFINE_string(name="tokenizer_path", default="seyonec/SMILES_tokenized_PubChem_shard00_160k", help="")
+flags.DEFINE_enum(name="tokenizer_type", default="smiles", enum_values=["smiles", "bpe", "SMILES", "BPE"], help="")
+flags.DEFINE_string(name="tokenizer_path", default="", help="")
+flags.DEFINE_integer(name="BPE_min_frequency", default=2, help="")
 flags.DEFINE_integer(name="max_tokenizer_len", default=512, help="")
 flags.DEFINE_integer(name="tokenizer_block_size", default=512, help="")
+
 
 # Dataset params
 flags.DEFINE_string(name="dataset_path", default="pubchem-10m.txt", help="")
@@ -63,18 +72,21 @@ def main(argv):
         type_vocab_size=FLAGS.type_vocab_size,
     )
 
-    tokenizer = RobertaTokenizerFast.from_pretrained(FLAGS.tokenizer_path, max_len=FLAGS.max_tokenizer_len)
+    if FLAGS.tokenizer_type.upper() == "BPE" and not FLAGS.tokenizer_path:
+        tokenizer = ByteLevelBPETokenizer()
+        tokenizer.train(files=FLAGS.dataset_path, vocab_size=FLAGS.vocab_size, min_frequency=FLAGS.BPE_min_frequency, special_tokens=["<s>","<pad>","</s>","<unk>","<mask>"])
+
+    else:
+        tokenizer = RobertaTokenizerFast.from_pretrained(FLAGS.tokenizer_path, max_len=FLAGS.max_tokenizer_len)
 
     model = RobertaForMaskedLM(config=config)
     model.num_parameters()
 
     dataset = RawTextDataset(tokenizer=tokenizer, file_path=FLAGS.dataset_path, block_size=FLAGS.tokenizer_block_size)
 
-
     data_collator = DataCollatorForLanguageModeling(
         tokenizer=tokenizer, mlm=True, mlm_probability=FLAGS.mlm_probability
     )
-
 
     training_args = TrainingArguments(
         output_dir=FLAGS.output_dir,
