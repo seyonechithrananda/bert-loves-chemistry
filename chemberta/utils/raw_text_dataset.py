@@ -1,6 +1,7 @@
 import torch
 from torch.utils.data import Dataset
 from nlp import load_dataset
+import pandas as pd
 
 class RawTextDataset(Dataset):
     """
@@ -42,3 +43,25 @@ class RawTextDataset(Dataset):
         line = self.dataset[i]
         example = self.preprocess(line)
         return example
+
+# TODO: convert this dataset to lazy-loading
+class RegressionDataset(Dataset):
+    def __init__(self, tokenizer, file_path: str):
+        self.tokenizer = tokenizer
+
+        # TODO: try to use HuggingFace framework for this part
+        # TODO: don't assume the structure of the CSV
+        df = pd.read_csv(file_path)
+        sequences_to_embed = df.iloc[:,0].values.tolist()
+        labels = df.iloc[:,1:].values.tolist()
+
+        self.encodings = tokenizer(sequences_to_embed, truncation=True, padding=True)
+        self.labels = labels
+
+    def __getitem__(self, idx):
+        item = {key: torch.tensor(val[idx]) for key, val in self.encodings.items()}
+        item['label'] = torch.tensor(self.labels[idx])
+        return item
+
+    def __len__(self):
+        return len(self.labels)
