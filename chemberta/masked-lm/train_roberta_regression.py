@@ -20,8 +20,9 @@ import torch
 
 import wandb
 from transformers import RobertaConfig, RobertaTokenizerFast, RobertaForMaskedLM
-from chemberta.utils.roberta_regression import RobertaForRegression, multitask_data_collator
 
+from chemberta.utils.roberta_regression import RobertaForRegression
+from chemberta.utils.data_collators import multitask_data_collator
 from chemberta.utils.raw_text_dataset import RawTextDataset, RegressionDataset
 
 from transformers import DataCollatorForLanguageModeling
