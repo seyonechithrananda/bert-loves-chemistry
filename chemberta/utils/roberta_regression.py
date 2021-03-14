@@ -8,9 +8,7 @@ from transformers import RobertaModel, PreTrainedModel
 from dataclasses import dataclass
 from transformers.file_utils import ModelOutput
 from typing import Optional, Tuple, List, Dict
-from transformers.tokenization_utils_base import BatchEncoding
 from transformers.models.roberta.modeling_roberta import RobertaPreTrainedModel
-from transformers.data.data_collator import InputDataClass
 
 
 class RobertaForRegression(RobertaPreTrainedModel):
@@ -151,37 +149,3 @@ class RegressionOutput(ModelOutput):
     logits: torch.FloatTensor = None
     hidden_states: Optional[Tuple[torch.FloatTensor]] = None
     attentions: Optional[Tuple[torch.FloatTensor]] = None
-
-
-def multitask_data_collator(features: List[InputDataClass]) -> Dict[str, torch.Tensor]:
-    """
-    Very simple data collator that simply collates batches of dict-like objects and performs special handling for
-    potential keys named:
-        - ``label``: handles a single value (int or float) per object
-        - ``label_ids``: handles a list of values per object
-    Does not do any additional preprocessing: property names of the input object will be used as corresponding inputs
-    to the model. See glue and ner for example of how it's useful.
-    """
-
-    # In this function we'll make the assumption that all `features` in the batch
-    # have the same attributes.
-    # So we will look at the first element as a proxy for what attributes exist
-    # on the whole batch.
-    if not isinstance(features[0], (dict, BatchEncoding)):
-        features = [vars(f) for f in features]
-
-    first = features[0]
-    batch = {}
-
-    batch["labels"] = torch.stack([f["label"] for f in features])
-
-    # Handling of all other possible keys.
-    # Again, we will use the first element to figure out which key/values are not None for this model.
-    for k, v in first.items():
-        if k != "label" and v is not None and not isinstance(v, str):
-            if isinstance(v, torch.Tensor):
-                batch[k] = torch.stack([f[k] for f in features])
-            else:
-                batch[k] = torch.tensor([f[k] for f in features])
-
-    return batch
