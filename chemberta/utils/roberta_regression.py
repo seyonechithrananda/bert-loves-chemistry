@@ -55,7 +55,8 @@ class RobertaForRegression(RobertaPreTrainedModel):
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
         )
-        sequence_output = outputs[0]
+        
+        sequence_output = outputs.last_hidden_state # shape = (batch, seq_len, hidden_size)
         logits = self.regression(sequence_output)
 
         if labels is not None:
