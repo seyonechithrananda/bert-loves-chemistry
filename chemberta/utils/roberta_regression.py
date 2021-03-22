@@ -89,8 +89,8 @@ class RobertaForRegression(RobertaPreTrainedModel):
         ):
         
         outputs = self.roberta(
-            torch.tensor(input_ids),
-            attention_mask=torch.tensor(attention_mask),
+            input_ids,
+            attention_mask=attention_mask,
             token_type_ids=token_type_ids,
             position_ids=position_ids,
             head_mask=head_mask,
@@ -100,8 +100,8 @@ class RobertaForRegression(RobertaPreTrainedModel):
             return_dict=return_dict,
         )
     
-        sequence_output = outputs[0]
-        logits = self.classifier(sequence_output)
+        sequence_output = outputs.last_hidden_state # shape = (batch, seq_len, hidden_size)
+        logits = self.regression(sequence_output)
 
         return logits
 
