@@ -66,15 +66,10 @@ class RegressionDataset(Dataset):
     def __len__(self):
         return self.len
     
-    def pad(self, feature_embedding, length_when_padded=300):
-        return feature_embedding
-        #return feature_embedding + [0] * (length_when_padded - len(feature_embedding))
-
     def preprocess(self, line):
-        #print("preprocessing")
         batch_encoding = self.tokenizer(line[self.smiles_column], add_special_tokens=True, truncation=True, padding="max_length", max_length=self.block_size)
-        batch_encoding = {k: torch.tensor(self.pad(v)) for k,v in batch_encoding.items()}
         batch_encoding["label"] = torch.tensor([line[label_column] for label_column in self.label_columns])
+        batch_encoding = {k: torch.tensor(v) for k,v in batch_encoding.items()}
         
         return batch_encoding
 
