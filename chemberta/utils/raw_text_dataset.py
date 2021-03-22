@@ -46,22 +46,49 @@ class RawTextDataset(Dataset):
 
 # TODO: convert this dataset to lazy-loading
 class RegressionDataset(Dataset):
-    def __init__(self, tokenizer, file_path: str):
+    def __init__(self, tokenizer, file_path: str, block_size: int):
+        print("init dataset")
         self.tokenizer = tokenizer
+        self.file_path = file_path
+        self.block_size = block_size
+        
+        self.dataset = load_dataset("csv", data_files=file_path)["train"]
+        
+        dataset_columns = list(self.dataset.features.keys())
+        self.smiles_column = dataset_columns[0]
+        self.label_columns = dataset_columns[1:]
+        
+        print("Loaded Dataset")
+        self.len = len(self.dataset)
+        print("Number of lines: " + str(self.len))
+        print("Block size: " + str(self.block_size))
+        
+    def __len__(self):
+        return self.len
+    
+    def pad(self, feature_embedding, length_when_padded=300):
+        return feature_embedding
+        #return feature_embedding + [0] * (length_when_padded - len(feature_embedding))
+
+    def preprocess(self, line):
+        #print("preprocessing")
+        batch_encoding = self.tokenizer(line[self.smiles_column], add_special_tokens=True, truncation=True, padding="max_length", max_length=self.block_size)
+        batch_encoding = {k: torch.tensor(self.pad(v)) for k,v in batch_encoding.items()}
+        batch_encoding["label"] = torch.tensor([line[label_column] for label_column in self.label_columns])
+        
+        return batch_encoding
+
+    def __getitem__(self, i):
+        #print(f"getting item {i}")
+        line = self.dataset[i]
+        example = self.preprocess(line)
+        return example    
 
         # TODO: try to use HuggingFace framework for this part
         # TODO: don't assume the structure of the CSV
-        df = pd.read_csv(file_path)
-        sequences_to_embed = df.iloc[:,0].values.tolist()
-        labels = df.iloc[:,1:].values.tolist()
+        #df = pd.read_csv(file_path)
+        #sequences_to_embed = df.iloc[:,0].values.tolist()
+        #labels = df.iloc[:,1:].values.tolist()
 
-        self.encodings = tokenizer(sequences_to_embed, truncation=True, padding=True)
-        self.labels = labels
-
-    def __getitem__(self, idx):
-        item = {key: torch.tensor(val[idx]) for key, val in self.encodings.items()}
-        item['label'] = torch.tensor(self.labels[idx])
-        return item
-
-    def __len__(self):
-        return len(self.labels)
+        #self.encodings = tokenizer(sequences_to_embed, truncation=True, padding=True)
+        #self.labels = labels
