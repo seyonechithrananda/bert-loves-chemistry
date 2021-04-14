@@ -177,6 +177,9 @@ class RobertaForRegression(RobertaPreTrainedModel):
         
         sequence_output = outputs.last_hidden_state # shape = (batch, seq_len, hidden_size)
         logits = self.regression(sequence_output)
+
+        if labels is None:
+            return logits
         
         if labels is not None:
             loss_fct = MSELoss()
