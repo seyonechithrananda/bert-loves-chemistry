@@ -1,7 +1,7 @@
 """ Script for training a Roberta Masked-Language Model
 
 Usage [SMILES tokenizer]:
-    python train_roberta_mlm.py --dataset_path=<DATASET_PATH> --output_dir=<OUTPUT_DIR> --model_name=<MODEL_NAME> --tokenizer_type=smiles --tokenizer_path="seyonec/SMILES_tokenized_PubChem_shard00_160k"
+    python train_roberta_regression.py --dataset_path=<DATASET_PATH> --output_dir=<OUTPUT_DIR> --model_name=<MODEL_NAME> --tokenizer_type=smiles --tokenizer_path="seyonec/SMILES_tokenized_PubChem_shard00_160k"
     
 Usage [BPE tokenizer]:
     python train_roberta_mlm.py --dataset_path=<DATASET_PATH> --output_dir=<OUTPUT_DIR> --model_name=<MODEL_NAME> --tokenizer_type=bpe
@@ -23,7 +23,7 @@ from transformers import RobertaConfig, RobertaTokenizerFast, RobertaForMaskedLM
 
 from chemberta.utils.roberta_regression import RobertaForRegression
 from chemberta.utils.data_collators import multitask_data_collator
-from chemberta.utils.raw_text_dataset import RawTextDataset, RegressionDataset
+from chemberta.utils.raw_text_dataset import RawTextDataset, RegressionDataset, RegressionDatasetNew
 
 from transformers import DataCollatorForLanguageModeling
 from transformers import Trainer, TrainingArguments
@@ -41,7 +41,7 @@ flags.DEFINE_integer(name="type_vocab_size", default=1, help="")
 
 # Tokenizer params
 flags.DEFINE_enum(name="tokenizer_type", default="smiles", enum_values=["smiles", "bpe", "SMILES", "BPE"], help="")
-flags.DEFINE_string(name="tokenizer_path", default="", help="")
+flags.DEFINE_string(name="tokenizer_path", default="seyonec/SMILES_tokenized_PubChem_shard00_160k", help="")
 flags.DEFINE_integer(name="BPE_min_frequency", default=2, help="")
 flags.DEFINE_string(name="output_tokenizer_dir", default="tokenizer_dir", help="")
 flags.DEFINE_integer(name="max_tokenizer_len", default=512, help="")
@@ -49,7 +49,7 @@ flags.DEFINE_integer(name="tokenizer_block_size", default=512, help="")
 
 
 # Dataset params
-flags.DEFINE_string(name="dataset_path", default="pubchem-10m.txt", help="")
+flags.DEFINE_string(name="dataset_path", default=None, help="")
 flags.DEFINE_string(name="output_dir", default="PubChem_10M_SMILES_Tokenizer", help="")
 flags.DEFINE_string(name="model_name", default="PubChem_10M_SMILES_Tokenizer", help="")
 
@@ -59,28 +59,17 @@ flags.DEFINE_float(name="mlm_probability", default=0.15, lower_bound=0.0, upper_
 # Train params
 flags.DEFINE_boolean(name="overwrite_output_dir", default=True, help="")
 flags.DEFINE_integer(name="num_train_epochs", default=10, help="")
-flags.DEFINE_integer(name="per_device_train_batch_size", default=64, help="")
+flags.DEFINE_integer(name="per_device_train_batch_size", default=32, help="")
 flags.DEFINE_integer(name="save_steps", default=10_000, help="")
 flags.DEFINE_integer(name="save_total_limit", default=2, help="")
+
+flags.mark_flag_as_required('dataset_path')
 
 
 def main(argv):
     #wandb.login()
-
     is_gpu = torch.cuda.is_available()
-
-    config = RobertaConfig(
-        vocab_size=FLAGS.vocab_size,
-        max_position_embeddings=FLAGS.max_position_embeddings,
-        num_attention_heads=FLAGS.num_attention_heads,
-        num_hidden_layers=FLAGS.num_hidden_layers,
-        type_vocab_size=FLAGS.type_vocab_size,
-        num_labels=2
-    )
-    
-    model = RobertaForRegression(config=config)
-    
-    
+        
     if FLAGS.tokenizer_path:
         tokenizer_path = FLAGS.tokenizer_path
     elif FLAGS.tokenizer_type.upper() == "BPE":
@@ -94,9 +83,21 @@ def main(argv):
     else:
         raise TypeError("Please provide a tokenizer path if using the SMILES tokenizer")
 
+    print("making tokenizer")
     tokenizer = RobertaTokenizerFast.from_pretrained(tokenizer_path, max_len=FLAGS.max_tokenizer_len)
-
-    dataset = RegressionDataset(tokenizer=tokenizer, file_path=FLAGS.dataset_path)
+    print("making dataset")
+    dataset = RegressionDataset(tokenizer=tokenizer, file_path=FLAGS.dataset_path, block_size=FLAGS.tokenizer_block_size)
+    
+    config = RobertaConfig(
+        vocab_size=FLAGS.vocab_size,
+        max_position_embeddings=FLAGS.max_position_embeddings,
+        num_attention_heads=FLAGS.num_attention_heads,
+        num_hidden_layers=FLAGS.num_hidden_layers,
+        type_vocab_size=FLAGS.type_vocab_size,
+        num_labels=dataset.num_labels
+    )
+    
+    model = RobertaForRegression(config=config)
 
     training_args = TrainingArguments(
         output_dir=FLAGS.output_dir,
@@ -108,6 +109,7 @@ def main(argv):
         fp16 = is_gpu, # fp16 only works on CUDA devices
     )
 
+    print("training")
     trainer = Trainer(
         model=model,
         args=training_args,
