@@ -1,4 +1,4 @@
-""" Script for training a Roberta Masked-Language Model
+""" Script for training a Roberta Regression Model (single or multi-task)
 
 Usage:
     python train_roberta_regression.py --dataset_path=<DATASET_PATH> --output_dir=<OUTPUT_DIR> --model_name=<MODEL_NAME> --tokenizer_type=<smiles/bpe>
