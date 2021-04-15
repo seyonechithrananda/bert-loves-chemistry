@@ -1,10 +1,8 @@
 """ Script for training a Roberta Masked-Language Model
 
-Usage [SMILES tokenizer]:
-    python train_roberta_regression.py --dataset_path=<DATASET_PATH> --output_dir=<OUTPUT_DIR> --model_name=<MODEL_NAME> --tokenizer_type=smiles --tokenizer_path="seyonec/SMILES_tokenized_PubChem_shard00_160k"
-    
-Usage [BPE tokenizer]:
-    python train_roberta_mlm.py --dataset_path=<DATASET_PATH> --output_dir=<OUTPUT_DIR> --model_name=<MODEL_NAME> --tokenizer_type=bpe
+Usage:
+    python train_roberta_regression.py --dataset_path=<DATASET_PATH> --output_dir=<OUTPUT_DIR> --model_name=<MODEL_NAME> --tokenizer_type=<smiles/bpe>
+
 """
     
 import torch
