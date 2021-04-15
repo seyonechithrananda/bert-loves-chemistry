@@ -10,7 +10,7 @@ from transformers.file_utils import ModelOutput
 from typing import Optional, Tuple, List, Dict
 from transformers.models.roberta.modeling_roberta import RobertaPreTrainedModel
 
-# TAKEN DIRECTLY FROM HUGGINGFACE NOT MODIFIED
+
 class RobertaClassificationHead(nn.Module):
     """Head for sentence-level classification tasks."""
 
@@ -28,7 +28,6 @@ class RobertaClassificationHead(nn.Module):
         x = self.dropout(x)
         x = self.out_proj(x)
         return x
-
 
 
 @dataclass
@@ -58,6 +57,7 @@ class SequenceClassifierOutput(ModelOutput):
     logits: torch.FloatTensor = None
     hidden_states: Optional[Tuple[torch.FloatTensor]] = None
     attentions: Optional[Tuple[torch.FloatTensor]] = None
+
 
 class RobertaForSequenceClassification(RobertaPreTrainedModel):
     _keys_to_ignore_on_load_missing = [r"position_ids"]
@@ -130,6 +130,7 @@ class RobertaForSequenceClassification(RobertaPreTrainedModel):
             attentions=outputs.attentions,
         )
 
+
 class RobertaForRegression(RobertaPreTrainedModel):
     _keys_to_ignore_on_load_missing = [r"position_ids"]
 
@@ -201,44 +202,11 @@ class RobertaForRegression(RobertaPreTrainedModel):
             attentions=outputs.attentions,
         )
 
-
     def normalize_logits(self, tensor):
         return (tensor - self.norm_mean) / self.norm_std
 
-
     def unnormalize_logits(self, tensor):
         return (tensor * self.norm_std) + self.norm_mean
-
-
-    def get_predictions(self,
-        input_ids=None,
-        attention_mask=None,
-        token_type_ids=None,
-        position_ids=None,
-        head_mask=None,
-        inputs_embeds=None,
-        labels=None,
-        output_attentions=None,
-        output_hidden_states=None,
-        return_dict=None,
-        ):
-        
-        outputs = self.roberta(
-            input_ids,
-            attention_mask=attention_mask,
-            token_type_ids=token_type_ids,
-            position_ids=position_ids,
-            head_mask=head_mask,
-            inputs_embeds=inputs_embeds,
-            output_attentions=output_attentions,
-            output_hidden_states=output_hidden_states,
-            return_dict=return_dict,
-        )
-    
-        sequence_output = outputs.last_hidden_state # shape = (batch, seq_len, hidden_size)
-        logits = self.regression(sequence_output)
-
-        return logits
 
     
 class RobertaRegressionHead(nn.Module):
