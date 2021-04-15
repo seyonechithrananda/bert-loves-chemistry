@@ -44,8 +44,33 @@ class RawTextDataset(Dataset):
         example = self.preprocess(line)
         return example
 
-# TODO: convert this dataset to lazy-loading
 class RegressionDataset(Dataset):
+    def __init__(self, tokenizer, file_path: str, block_size:int):
+        self.tokenizer = tokenizer
+
+        # TODO: try to use HuggingFace framework for this part
+        # TODO: don't assume the structure of the CSV
+        df = pd.read_csv(file_path)
+        sequences_to_embed = df.iloc[:,0].values.tolist()
+        labels = df.iloc[:,1:]
+        
+        self.norm_mean = labels.mean().values.tolist()
+        self.norm_std = labels.std().values.tolist()
+
+        self.encodings = tokenizer(sequences_to_embed, truncation=True, padding=True)
+        self.labels = labels.values.tolist()
+        self.num_labels = df.iloc[:,1:].shape[1]
+
+    def __getitem__(self, idx):
+        item = {key: torch.tensor(val[idx]) for key, val in self.encodings.items()}
+        item['label'] = torch.tensor(self.labels[idx], dtype=torch.float32)
+        return item
+
+    def __len__(self):
+        return len(self.labels)
+
+# TODO: convert this dataset to lazy-loading
+class RegressionDatasetNew(Dataset):
     def __init__(self, tokenizer, file_path: str, block_size: int):
         print("init dataset")
         self.tokenizer = tokenizer
@@ -57,6 +82,7 @@ class RegressionDataset(Dataset):
         dataset_columns = list(self.dataset.features.keys())
         self.smiles_column = dataset_columns[0]
         self.label_columns = dataset_columns[1:]
+        self.num_labels = len(self.label_columns)
         
         print("Loaded Dataset")
         self.len = len(self.dataset)
