@@ -94,7 +94,9 @@ def main(argv):
         num_attention_heads=FLAGS.num_attention_heads,
         num_hidden_layers=FLAGS.num_hidden_layers,
         type_vocab_size=FLAGS.type_vocab_size,
-        num_labels=dataset.num_labels
+        num_labels=dataset.num_labels,
+        norm_mean=dataset.norm_mean,
+        norm_std=dataset.norm_std,
     )
     
     model = RobertaForRegression(config=config)
