@@ -60,7 +60,7 @@ class SequenceClassifierOutput(ModelOutput):
 
 
 class RobertaForSequenceClassification(RobertaPreTrainedModel):
-    _keys_to_ignore_on_load_missing = [r"position_ids"]
+    _keys_to_ignore_on_load_missing = ["position_ids"]
 
     def __init__(self, config):
         super().__init__(config)
@@ -84,7 +84,7 @@ class RobertaForSequenceClassification(RobertaPreTrainedModel):
         output_hidden_states=None,
         return_dict=None,
     ):
-        r"""
+        """
         labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`):
             Labels for computing the sequence classification/regression loss. Indices should be in :obj:`[0, ...,
             config.num_labels - 1]`. If :obj:`config.num_labels == 1` a regression loss is computed (Mean-Square loss),
@@ -132,7 +132,7 @@ class RobertaForSequenceClassification(RobertaPreTrainedModel):
 
 
 class RobertaForRegression(RobertaPreTrainedModel):
-    _keys_to_ignore_on_load_missing = [r"position_ids"]
+    _keys_to_ignore_on_load_missing = ["position_ids"]
 
     def __init__(self, config):
         super().__init__(config)
@@ -159,7 +159,7 @@ class RobertaForRegression(RobertaPreTrainedModel):
         output_hidden_states=None,
         return_dict=None,
     ):
-        r"""
+        """
         labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`):
             Labels for computing the sequence classification/regression loss. Indices should be in :obj:`[0, ...,
             config.num_labels - 1]`. If :obj:`config.num_labels == 1` a regression loss is computed (Mean-Square loss),
