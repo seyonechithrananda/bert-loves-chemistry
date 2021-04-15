@@ -44,6 +44,7 @@ class RawTextDataset(Dataset):
         example = self.preprocess(line)
         return example
 
+
 class RegressionDataset(Dataset):
     def __init__(self, tokenizer, file_path: str, block_size:int):
         self.tokenizer = tokenizer
@@ -69,8 +70,9 @@ class RegressionDataset(Dataset):
     def __len__(self):
         return len(self.labels)
 
-# TODO: convert this dataset to lazy-loading
-class RegressionDatasetNew(Dataset):
+
+# This dataset is more efficient (supposedly) but has some issues
+class RegressionDatasetLazy(Dataset):
     def __init__(self, tokenizer, file_path: str, block_size: int):
         print("init dataset")
         self.tokenizer = tokenizer
@@ -104,12 +106,3 @@ class RegressionDatasetNew(Dataset):
         line = self.dataset[i]
         example = self.preprocess(line)
         return example    
-
-        # TODO: try to use HuggingFace framework for this part
-        # TODO: don't assume the structure of the CSV
-        #df = pd.read_csv(file_path)
-        #sequences_to_embed = df.iloc[:,0].values.tolist()
-        #labels = df.iloc[:,1:].values.tolist()
-
-        #self.encodings = tokenizer(sequences_to_embed, truncation=True, padding=True)
-        #self.labels = labels
