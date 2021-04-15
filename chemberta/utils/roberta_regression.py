@@ -136,6 +136,9 @@ class RobertaForRegression(RobertaPreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
         self.num_labels = config.num_labels
+        self.norm_mean = torch.tensor(config.norm_mean)
+        # Replace any 0 stddev norms with small constant (1e-8)
+        self.norm_std = torch.tensor([label_std if label_std != 0 else 1e-8 for label_std in config.norm_std])
 
         self.roberta = RobertaModel(config, add_pooling_layer=False)
         self.regression = RobertaRegressionHead(config)
@@ -179,12 +182,13 @@ class RobertaForRegression(RobertaPreTrainedModel):
         logits = self.regression(sequence_output)
 
         if labels is None:
-            return logits
+            
+            return self.unnormalize_logits(logits)
         
         if labels is not None:
+            logits = self.normalize_logits(logits)
             loss_fct = MSELoss()
             loss = loss_fct(logits.view(-1), labels.view(-1))
-
 
             if not return_dict:
                 output = (logits,) + outputs[2:]
@@ -196,7 +200,16 @@ class RobertaForRegression(RobertaPreTrainedModel):
             hidden_states=outputs.hidden_states,
             attentions=outputs.attentions,
         )
-    
+
+
+    def normalize_logits(self, tensor):
+        return (tensor - self.norm_mean) / self.norm_std
+
+
+    def unnormalize_logits(self, tensor):
+        return (tensor * self.norm_std) + self.norm_mean
+
+
     def get_predictions(self,
         input_ids=None,
         attention_mask=None,
