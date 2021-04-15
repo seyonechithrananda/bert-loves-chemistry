@@ -168,8 +168,8 @@ class RobertaForRegression(RobertaPreTrainedModel):
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
         outputs = self.roberta(
-            input_ids, # torch.tensor ? 
-            attention_mask=attention_mask, # torch.tensor ?
+            input_ids,
+            attention_mask=attention_mask,
             token_type_ids=token_type_ids,
             position_ids=position_ids,
             head_mask=head_mask,
