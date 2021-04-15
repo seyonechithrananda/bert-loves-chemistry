@@ -5,18 +5,14 @@ from transformers.tokenization_utils_base import BatchEncoding
 
 def multitask_data_collator(features: List[InputDataClass]) -> Dict[str, torch.Tensor]:
     """
-    Very simple data collator that simply collates batches of dict-like objects and performs special handling for
-    potential keys named:
-        - ``label``: handles a single value (int or float) per object
-        - ``label_ids``: handles a list of values per object
-    Does not do any additional preprocessing: property names of the input object will be used as corresponding inputs
-    to the model. See glue and ner for example of how it's useful.
+    Very simple data collator that simply collates batches of dict-like objects and performs special handling for potential keys named label
     """
 
     # In this function we'll make the assumption that all `features` in the batch
     # have the same attributes.
     # So we will look at the first element as a proxy for what attributes exist
     # on the whole batch.
+    print(f"collating {len(features)} items")
     if not isinstance(features[0], (dict, BatchEncoding)):
         features = [vars(f) for f in features]
 
@@ -33,5 +29,5 @@ def multitask_data_collator(features: List[InputDataClass]) -> Dict[str, torch.T
                 batch[k] = torch.stack([f[k] for f in features])
             else:
                 batch[k] = torch.tensor([f[k] for f in features])
-
+                
     return batch
