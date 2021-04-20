@@ -17,7 +17,11 @@ Work in progress.
 
 import deepchem
 from rdkit import Chem
+
 import os
+from absl import app
+from absl import flags
+
 import numpy as np
 import pandas as pd
 from typing import List
@@ -36,6 +40,23 @@ from chemberta.utils.molnet_dataset import MolNetDataset
 from transformers import RobertaTokenizerFast, RobertaForSequenceClassification, Trainer, TrainingArguments, AdamW
 
 
+FLAGS = flags.FLAGS
+
+flags.DEFINE_string(name="molnet_dataset", defualt="clintox", help="")
+flags.mark_flag_as_required('molnet_dataset')
+
+flags.DEFINE_string(name="model_path", defualt="seyonec/SMILES_tokenized_PubChem_shard00_160k", help="")
+flags.mark_flag_as_required('model_path')
+
+flags.DEFINE_integer(name="num_train_epochs", default=10, help="")
+flags.DEFINE_integer(name="per_device_train_batch_size", default=32, help="")
+flags.DEFINE_integer(name="per_device_eval_batch_size", default=64, help="")
+flags.DEFINE_integer(name="warmup_steps", default=500, help="")
+flags.DEFINE_integer(name="weight_decay", default=0.01, help="")
+
+flags.DEFINE_string(name='logging_dir', default='./logs', help="")
+flags.DEFINE_integer(name='logging_steps', default=10, help="")
+FLAGS.DEFINE_string(name='output_dir', default='./results', help="")
 
 
 def read_molnet_df(df):
@@ -50,20 +71,20 @@ def read_molnet_df(df):
 
 
 def trainer_finetune():
-    """#Fine-tuning using HF Trainer"""
+    #Fine-tuning using HF Trainer
 
     training_args = TrainingArguments(
-    output_dir='./results',          # output directory
-    num_train_epochs=3,              # total number of training epochs
-    per_device_train_batch_size=16,  # batch size per device during training
-    per_device_eval_batch_size=64,   # batch size for evaluation
-    warmup_steps=500,                # number of warmup steps for learning rate scheduler
-    weight_decay=0.01,               # strength of weight decay
-    logging_dir='./logs',            # directory for storing logs
-    logging_steps=10,
+    output_dir=FLAGS.output_dir,          # output directory
+    num_train_epochs=FLAGS.num_train_epochs,          # total number of training epochs
+    per_device_train_batch_size=FLAGS.per_device_train_batch_size,  # batch size per device during training
+    per_device_eval_batch_size=FLAGS.per_device_eval_batch_size,   # batch size for evaluation
+    warmup_steps=FLAGS.warmup_steps,          # number of warmup steps for learning rate scheduler
+    weight_decay=FLAGS.weight_decay,          # strength of L2 weight decay (taken directly from roberta paper settings)
+    logging_dir=FLAGS.logging_dir,          # directory for storing logs
+    logging_steps=FLAGS.logging_steps,
     )
 
-    model = RobertaForSequenceClassification.from_pretrained("seyonec/SMILES_tokenized_PubChem_shard00_160k")
+    model = RobertaForSequenceClassification.from_pretrained(FLAGS.model_path)
 
     trainer = Trainer(
         model=model,                         # the instantiated 🤗 Transformers model to be trained
@@ -74,10 +95,11 @@ def trainer_finetune():
 
     trainer.train()
 
+"""
 def torch_finetune():
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
-    model = RobertaForSequenceClassification.from_pretrained("seyonec/SMILES_tokenized_PubChem_shard00_160k")
+    model = RobertaForSequenceClassification.from_pretrained(FLAGS.model_path)
     model.to(device)
     model.train()
 
@@ -98,15 +120,16 @@ def torch_finetune():
 
     model.eval()
 
+"""
 
 def main(argv):
-    tasks, (train_df, valid_df, test_df), transformers = load_molnet_dataset("clintox", tasks_wanted=None)
+    tasks, (train_df, valid_df, test_df), transformers = load_molnet_dataset(FLAGS.molnet_dataset, tasks_wanted=None)
 
     train_texts, train_labels = read_molnet_df(train_df)
     val_texts, val_labels = read_molnet_df(valid_df)
     test_texts, test_labels = read_molnet_df(test_df)
 
-    tokenizer = RobertaTokenizerFast.from_pretrained('seyonec/SMILES_tokenized_PubChem_shard00_160k')
+    tokenizer = RobertaTokenizerFast.from_pretrained(FLAGS.model_path)
 
     train_encodings = tokenizer(train_texts, truncation=True, padding=True)
     val_encodings = tokenizer(val_texts, truncation=True, padding=True)
@@ -118,7 +141,7 @@ def main(argv):
 
     
     trainer_finetune()
-    torch_finetune
+    # torch_finetune()
 
 
 if __name__ == '__main__':
