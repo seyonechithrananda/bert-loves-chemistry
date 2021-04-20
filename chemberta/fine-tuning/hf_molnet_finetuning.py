@@ -56,7 +56,8 @@ flags.DEFINE_integer(name="weight_decay", default=0.01, help="")
 
 flags.DEFINE_string(name='logging_dir', default='./logs', help="")
 flags.DEFINE_integer(name='logging_steps', default=10, help="")
-FLAGS.DEFINE_string(name='output_dir', default='./results', help="")
+flags.DEFINE_string(name='output_dir', default='./results', help="")
+flags.DEFINE_boolean(name='freeze_weights', default=False, help="")
 
 
 def read_molnet_df(df):
@@ -86,6 +87,11 @@ def trainer_finetune():
 
     model = RobertaForSequenceClassification.from_pretrained(FLAGS.model_path)
 
+    # freeze weights and only train classifier head
+    if FLAGS.freeze_weights:
+        for param in model.roberta.parameters():
+            param.requires_grad = False
+
     trainer = Trainer(
         model=model,                         # the instantiated 🤗 Transformers model to be trained
         args=training_args,                  # training arguments, defined above
@@ -107,7 +113,7 @@ def torch_finetune():
 
     optim = AdamW(model.parameters(), lr=5e-5)
 
-    for epoch in range(3):
+    for epoch in range(10):
         for batch in train_loader:
             optim.zero_grad()
             input_ids = batch['input_ids'].to(device)
