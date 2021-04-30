@@ -11,6 +11,7 @@ from absl import app
 from absl import flags
 
 import transformers
+from transformers.trainer_callback import EarlyStoppingCallback
 
 import torch
 from torch.utils.data import random_split
@@ -120,6 +121,7 @@ def main(argv):
         save_steps=FLAGS.save_steps,
         save_total_limit=FLAGS.save_total_limit,
         fp16 = is_gpu and FLAGS.fp16, # fp16 only works on CUDA devices
+        metric_for_best_model=
     )
 
     trainer = Trainer(
@@ -128,6 +130,7 @@ def main(argv):
         data_collator=data_collator,
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
+        callbacks=[EarlyStoppingCallback(early_stopping_patience=1)],
     )
 
     trainer.train()
