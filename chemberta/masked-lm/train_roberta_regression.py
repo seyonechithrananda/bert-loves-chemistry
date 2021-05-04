@@ -31,7 +31,7 @@ from tokenizers import ByteLevelBPETokenizer
 FLAGS = flags.FLAGS
 
 # RobertaConfig params
-flags.DEFINE_integer(name="vocab_size", default=52_000, help="")
+flags.DEFINE_integer(name="vocab_size", default=512, help="")
 flags.DEFINE_integer(name="max_position_embeddings", default=512, help="")
 flags.DEFINE_integer(name="num_attention_heads", default=12, help="")
 flags.DEFINE_integer(name="num_hidden_layers", default=6, help="")
