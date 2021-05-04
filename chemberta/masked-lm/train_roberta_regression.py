@@ -4,7 +4,7 @@ Usage:
     python train_roberta_regression.py --dataset_path=<DATASET_PATH> --output_dir=<OUTPUT_DIR> --model_name=<MODEL_NAME> --tokenizer_type=<smiles/bpe>
 
 """
-    
+
 import torch
 import pandas as pd
 
@@ -57,7 +57,7 @@ flags.DEFINE_float(name="mlm_probability", default=0.15, lower_bound=0.0, upper_
 # Train params
 flags.DEFINE_boolean(name="overwrite_output_dir", default=True, help="")
 flags.DEFINE_integer(name="num_train_epochs", default=10, help="")
-flags.DEFINE_integer(name="per_device_train_batch_size", default=32, help="")
+flags.DEFINE_integer(name="per_device_train_batch_size", default=16, help="")
 flags.DEFINE_integer(name="save_steps", default=10_000, help="")
 flags.DEFINE_integer(name="save_total_limit", default=2, help="")
 
@@ -67,14 +67,14 @@ flags.mark_flag_as_required('dataset_path')
 def main(argv):
     #wandb.login()
     is_gpu = torch.cuda.is_available()
-        
+
     if FLAGS.tokenizer_path:
         tokenizer_path = FLAGS.tokenizer_path
     elif FLAGS.tokenizer_type.upper() == "BPE":
         tokenizer_path = FLAGS.output_tokenizer_dir
         if not os.path.isdir(tokenizer_path):
             os.makedirs(tokenizer_path)
-        
+
         tokenizer = ByteLevelBPETokenizer()
         tokenizer.train(files=FLAGS.dataset_path, vocab_size=FLAGS.vocab_size, min_frequency=FLAGS.BPE_min_frequency, special_tokens=["<s>","<pad>","</s>","<unk>","<mask>"])
         tokenizer.save_model(tokenizer_path)
@@ -85,7 +85,7 @@ def main(argv):
     tokenizer = RobertaTokenizerFast.from_pretrained(tokenizer_path, max_len=FLAGS.max_tokenizer_len)
     print("making dataset")
     dataset = RegressionDataset(tokenizer=tokenizer, file_path=FLAGS.dataset_path, block_size=FLAGS.tokenizer_block_size)
-    
+
     config = RobertaConfig(
         vocab_size=FLAGS.vocab_size,
         max_position_embeddings=FLAGS.max_position_embeddings,
@@ -96,7 +96,7 @@ def main(argv):
         norm_mean=dataset.norm_mean,
         norm_std=dataset.norm_std,
     )
-    
+
     model = RobertaForRegression(config=config)
 
     training_args = TrainingArguments(
