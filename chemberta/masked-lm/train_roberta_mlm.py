@@ -113,6 +113,7 @@ def main(argv):
     training_args = TrainingArguments(
         evaluation_strategy="steps",
         eval_steps=FLAGS.eval_steps,
+        load_best_model_at_end=True,
         logging_steps=FLAGS.logging_steps,
         output_dir=FLAGS.output_dir,
         overwrite_output_dir=FLAGS.overwrite_output_dir,
