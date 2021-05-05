@@ -2,7 +2,7 @@
 
 Usage [SMILES tokenizer]:
     python train_roberta_mlm.py --dataset_path=<DATASET_PATH> --output_dir=<OUTPUT_DIR> --model_name=<MODEL_NAME> --tokenizer_type=smiles --tokenizer_path="seyonec/SMILES_tokenized_PubChem_shard00_160k"
-    
+
 Usage [BPE tokenizer]:
     python train_roberta_mlm.py --dataset_path=<DATASET_PATH> --output_dir=<OUTPUT_DIR> --model_name=<MODEL_NAME> --tokenizer_type=bpe
 """
@@ -21,7 +21,7 @@ from transformers import RobertaConfig
 from transformers import RobertaTokenizerFast
 from transformers import RobertaForMaskedLM
 
-from chemberta.utils.raw_text_dataset import RawTextDataset 
+from chemberta.utils.raw_text_dataset import RawTextDataset
 
 from transformers import DataCollatorForLanguageModeling
 from transformers import Trainer, TrainingArguments
@@ -78,14 +78,14 @@ def main(argv):
         num_hidden_layers=FLAGS.num_hidden_layers,
         type_vocab_size=FLAGS.type_vocab_size,
     )
-    
+
     if FLAGS.tokenizer_path:
         tokenizer_path = FLAGS.tokenizer_path
     elif FLAGS.tokenizer_type.upper() == "BPE":
         tokenizer_path = FLAGS.output_tokenizer_dir
         if not os.path.isdir(tokenizer_path):
             os.makedirs(tokenizer_path)
-        
+
         tokenizer = ByteLevelBPETokenizer()
         tokenizer.train(files=FLAGS.dataset_path, vocab_size=FLAGS.vocab_size, min_frequency=FLAGS.BPE_min_frequency, special_tokens=["<s>","<pad>","</s>","<unk>","<mask>"])
         tokenizer.save_model(tokenizer_path)
@@ -98,12 +98,12 @@ def main(argv):
     model.num_parameters()
 
     dataset = RawTextDataset(tokenizer=tokenizer, file_path=FLAGS.dataset_path, block_size=FLAGS.tokenizer_block_size)
-    
+
     train_size = max(int(FLAGS.frac_train * len(dataset)), 1)
     eval_size = len(dataset) - train_size
     print(f"Train size: {train_size}")
     print(f"Eval size: {eval_size}")
-    
+
     train_dataset, eval_dataset = random_split(dataset, [train_size, eval_size])
 
     data_collator = DataCollatorForLanguageModeling(
@@ -115,6 +115,7 @@ def main(argv):
         eval_steps=FLAGS.eval_steps,
         load_best_model_at_end=True,
         logging_steps=FLAGS.logging_steps,
+        load_best_model_at_end = True,
         output_dir=FLAGS.output_dir,
         overwrite_output_dir=FLAGS.overwrite_output_dir,
         num_train_epochs=FLAGS.num_train_epochs,
