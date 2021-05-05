@@ -121,7 +121,6 @@ def main(argv):
         save_steps=FLAGS.save_steps,
         save_total_limit=FLAGS.save_total_limit,
         fp16 = is_gpu and FLAGS.fp16, # fp16 only works on CUDA devices
-        metric_for_best_model=
     )
 
     trainer = Trainer(
