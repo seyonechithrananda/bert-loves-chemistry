@@ -105,10 +105,10 @@ class RobertaForSequenceClassification(RobertaPreTrainedModel):
         )
         sequence_output = outputs[0]
         logits = self.classifier(sequence_output)
-        
+
         if labels is None:
             return logits
- 
+
         loss = None
         if labels is not None:
             if self.num_labels == 1:
@@ -140,6 +140,9 @@ class RobertaForRegression(RobertaPreTrainedModel):
         self.norm_mean = torch.tensor(config.norm_mean)
         # Replace any 0 stddev norms with small constant (1e-8)
         self.norm_std = torch.tensor([label_std if label_std != 0 else 1e-8 for label_std in config.norm_std])
+        if config.is_gpu:
+            self.norm_mean = self.norm_mean.cuda()
+            self.norm_std = self.norm_std.cuda()
 
         self.roberta = RobertaModel(config, add_pooling_layer=False)
         self.regression = RobertaRegressionHead(config)
@@ -178,14 +181,14 @@ class RobertaForRegression(RobertaPreTrainedModel):
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
         )
-        
+
         sequence_output = outputs.last_hidden_state # shape = (batch, seq_len, hidden_size)
         logits = self.regression(sequence_output)
 
         if labels is None:
-            
+
             return self.unnormalize_logits(logits)
-        
+
         if labels is not None:
             logits = self.normalize_logits(logits)
             loss_fct = MSELoss()
@@ -208,7 +211,7 @@ class RobertaForRegression(RobertaPreTrainedModel):
     def unnormalize_logits(self, tensor):
         return (tensor * self.norm_std) + self.norm_mean
 
-    
+
 class RobertaRegressionHead(nn.Module):
     """Head for multitask regression models."""
 
@@ -227,7 +230,7 @@ class RobertaRegressionHead(nn.Module):
         x = self.out_proj(x)
         return x
 
-    
+
 @dataclass
 class RegressionOutput(ModelOutput):
     """
