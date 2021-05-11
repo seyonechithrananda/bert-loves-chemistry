@@ -1,10 +1,10 @@
 """ Script for training a Roberta Masked-Language Model
 
 Usage [SMILES tokenizer]:
-    python train_roberta_mlm.py --dataset_path=<DATASET_PATH> --output_dir=<OUTPUT_DIR> --model_name=<MODEL_NAME> --tokenizer_type=smiles --tokenizer_path="seyonec/SMILES_tokenized_PubChem_shard00_160k"
+    python train_roberta_mlm.py --dataset_path=<DATASET_PATH> --output_dir=<OUTPUT_DIR> --run_name=<RUN_NAME> --tokenizer_type=smiles --tokenizer_path="seyonec/SMILES_tokenized_PubChem_shard00_160k"
 
 Usage [BPE tokenizer]:
-    python train_roberta_mlm.py --dataset_path=<DATASET_PATH> --output_dir=<OUTPUT_DIR> --model_name=<MODEL_NAME> --tokenizer_type=bpe
+    python train_roberta_mlm.py --dataset_path=<DATASET_PATH> --output_dir=<OUTPUT_DIR> --run_name=<RUN_NAME> --tokenizer_type=bpe
 """
 import os
 from absl import app
@@ -48,9 +48,9 @@ flags.DEFINE_integer(name="tokenizer_block_size", default=512, help="")
 
 
 # Dataset params
-flags.DEFINE_string(name="dataset_path", default="pubchem-10m.txt", help="")
-flags.DEFINE_string(name="output_dir", default="PubChem_10M_SMILES_Tokenizer", help="")
-flags.DEFINE_string(name="model_name", default="PubChem_10M_SMILES_Tokenizer", help="")
+flags.DEFINE_string(name="dataset_path", default=None, help="")
+flags.DEFINE_string(name="output_dir", default="default_dir", help="")
+flags.DEFINE_string(name="run_name", default="default_run", help="")
 
 # MLM params
 flags.DEFINE_float(name="mlm_probability", default=0.15, lower_bound=0.0, upper_bound=1.0, help="")
@@ -64,6 +64,8 @@ flags.DEFINE_integer(name="num_train_epochs", default=1, help="")
 flags.DEFINE_integer(name="per_device_train_batch_size", default=64, help="")
 flags.DEFINE_integer(name="save_steps", default=10000, help="")
 flags.DEFINE_integer(name="save_total_limit", default=2, help="")
+
+flags.mark_flag_as_required("dataset_path")
 
 
 def main(argv):
@@ -117,13 +119,15 @@ def main(argv):
         eval_steps=FLAGS.eval_steps,
         load_best_model_at_end=True,
         logging_steps=FLAGS.logging_steps,
-        output_dir=os.path.join(FLAGS.output_dir, FLAGS.model_name),
+        output_dir=os.path.join(FLAGS.output_dir, FLAGS.run_name),
         overwrite_output_dir=FLAGS.overwrite_output_dir,
         num_train_epochs=FLAGS.num_train_epochs,
         per_device_train_batch_size=FLAGS.per_device_train_batch_size,
         save_steps=FLAGS.save_steps,
         save_total_limit=FLAGS.save_total_limit,
         fp16 = is_gpu and FLAGS.fp16, # fp16 only works on CUDA devices
+        report_to="wandb",
+        run_name=FLAGS.run_name,
     )
 
     trainer = Trainer(
@@ -136,7 +140,7 @@ def main(argv):
     )
 
     trainer.train()
-    trainer.save_model(os.path.join(FLAGS.output_dir, FLAGS.model_name, "final"))
+    trainer.save_model(os.path.join(FLAGS.output_dir, FLAGS.run_name, "final"))
 
 if __name__ == '__main__':
     app.run(main)
