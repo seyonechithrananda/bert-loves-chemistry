@@ -67,6 +67,8 @@ flags.DEFINE_integer(name="save_total_limit", default=2, help="")
 
 
 def main(argv):
+    torch.manual_seed(0)
+    
     wandb.login()
 
     is_gpu = torch.cuda.is_available()
@@ -95,7 +97,7 @@ def main(argv):
     tokenizer = RobertaTokenizerFast.from_pretrained(tokenizer_path, max_len=FLAGS.max_tokenizer_len)
 
     model = RobertaForMaskedLM(config=config)
-    model.num_parameters()
+    print(f"Model size: {model.num_parameters()} parameters.")
 
     dataset = RawTextDataset(tokenizer=tokenizer, file_path=FLAGS.dataset_path, block_size=FLAGS.tokenizer_block_size)
 
