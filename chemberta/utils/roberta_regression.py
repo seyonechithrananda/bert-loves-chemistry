@@ -137,14 +137,10 @@ class RobertaForRegression(RobertaPreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
         self.num_labels = config.num_labels
+
         self.register_buffer('norm_mean', torch.tensor(config.norm_mean))
+        # Replace any 0 stddev norms with 1
         self.register_buffer('norm_std', torch.tensor([label_std if label_std != 0 else 1 for label_std in config.norm_std]))
-        #self.norm_mean = torch.tensor(config.norm_mean)
-        # Replace any 0 stddev norms with small constant (1e-8)
-        #self.norm_std = torch.tensor([label_std if label_std != 0 else 1e-8 for label_std in config.norm_std])
-        #if config.is_gpu:
-        #    self.norm_mean = self.norm_mean.cuda()
-        #    self.norm_std = self.norm_std.cuda()
 
         self.roberta = RobertaModel(config, add_pooling_layer=False)
         self.regression = RobertaRegressionHead(config)
@@ -192,10 +188,8 @@ class RobertaForRegression(RobertaPreTrainedModel):
 
         if labels is not None:
             normalized_labels = self.normalize_logits(labels)
-            #logits = self.normalize_logits(logits)
             loss_fct = MSELoss()
             loss = loss_fct(logits.view(-1), normalized_labels.view(-1))
-            #import pdb;pdb.set_trace()
 
             if not return_dict:
                 output = (logits,) + outputs[2:]
@@ -209,13 +203,10 @@ class RobertaForRegression(RobertaPreTrainedModel):
         )
 
     def normalize_logits(self, tensor):
-        #import pdb;pdb.set_trace()
         return (tensor - self.norm_mean) / self.norm_std
-        return (tensor - self.norm_mean.type_as(tensor)) / self.norm_std.type_as(tensor)
 
     def unnormalize_logits(self, tensor):
         return (tensor * self.norm_std) + self.norm_mean
-        return (tensor * self.norm_std.type_as(tensor)) + self.norm_mean.type_as(tensor)
 
 
 class RobertaRegressionHead(nn.Module):
