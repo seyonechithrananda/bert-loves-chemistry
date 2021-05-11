@@ -115,8 +115,7 @@ def main(argv):
         eval_steps=FLAGS.eval_steps,
         load_best_model_at_end=True,
         logging_steps=FLAGS.logging_steps,
-        load_best_model_at_end = True,
-        output_dir=FLAGS.output_dir,
+        output_dir=os.path.join(FLAGS.output_dir, FLAGS.model_name),
         overwrite_output_dir=FLAGS.overwrite_output_dir,
         num_train_epochs=FLAGS.num_train_epochs,
         per_device_train_batch_size=FLAGS.per_device_train_batch_size,
@@ -135,7 +134,7 @@ def main(argv):
     )
 
     trainer.train()
-    trainer.save_model(FLAGS.model_name)
+    trainer.save_model(os.path.join(FLAGS.output_dir, FLAGS.model_name, "final"))
 
 if __name__ == '__main__':
     app.run(main)
