@@ -34,7 +34,7 @@ FLAGS = flags.FLAGS
 # RobertaConfig params
 flags.DEFINE_integer(name="vocab_size", default=512, help="")
 flags.DEFINE_integer(name="max_position_embeddings", default=515, help="")
-flags.DEFINE_integer(name="num_attention_heads", default=4, help="")
+flags.DEFINE_integer(name="num_attention_heads", default=6, help="")
 flags.DEFINE_integer(name="num_hidden_layers", default=6, help="")
 flags.DEFINE_integer(name="type_vocab_size", default=1, help="")
 
@@ -57,10 +57,10 @@ flags.DEFINE_float(name="mlm_probability", default=0.15, lower_bound=0.0, upper_
 
 # Train params
 flags.DEFINE_float(name="frac_train", default=0.95, help="")
-flags.DEFINE_integer(name="eval_steps", default=1000, help="")
+flags.DEFINE_integer(name="eval_steps", default=10, help="")
 flags.DEFINE_integer(name="logging_steps", default=10, help="")
 flags.DEFINE_boolean(name="overwrite_output_dir", default=True, help="")
-flags.DEFINE_integer(name="num_train_epochs", default=10, help="")
+flags.DEFINE_integer(name="num_train_epochs", default=100, help="")
 flags.DEFINE_integer(name="per_device_train_batch_size", default=64, help="")
 flags.DEFINE_integer(name="save_steps", default=100, help="")
 flags.DEFINE_integer(name="save_total_limit", default=2, help="")
@@ -110,6 +110,7 @@ def main(argv):
     )
 
     model = RobertaForRegression(config=config)
+    model = model.cuda()
 
     training_args = TrainingArguments(
         evaluation_strategy="steps",
@@ -132,7 +133,7 @@ def main(argv):
         data_collator=multitask_data_collator,
         train_dataset=dataset,
         eval_dataset=eval_dataset,
-        callbacks=[EarlyStoppingCallback(early_stopping_patience=1)],
+        callbacks=[EarlyStoppingCallback(early_stopping_patience=5)],
     )
 
     trainer.train()
