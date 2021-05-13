@@ -44,34 +44,6 @@ class RawTextDataset(Dataset):
         example = self.preprocess(line)
         return example
 
-
-class RegressionDatasetOld(Dataset):
-    def __init__(self, tokenizer, file_path: str, block_size:int):
-        self.tokenizer = tokenizer
-
-        # TODO: try to use HuggingFace framework for this part
-        # TODO: don't assume the structure of the CSV
-        df = pd.read_csv(file_path)
-        sequences_to_embed = df.iloc[:,0].values.tolist()
-        labels = df.iloc[:,1:]
-
-        self.norm_mean = labels.mean().values.tolist()
-        self.norm_std = labels.std().values.tolist()
-
-        self.encodings = tokenizer(sequences_to_embed, truncation=True, padding=True)
-        self.labels = labels.values.tolist()
-        self.num_labels = df.iloc[:,1:].shape[1]
-
-    def __getitem__(self, idx):
-        item = {key: torch.tensor(val[idx]) for key, val in self.encodings.items()}
-        item['label'] = torch.tensor(self.labels[idx], dtype=torch.float32)
-        return item
-
-    def __len__(self):
-        return len(self.labels)
-
-
-# This dataset is more efficient (supposedly) but has some issues
 class RegressionDataset(Dataset):
     def __init__(self, tokenizer, file_path: str, block_size: int, norm_path: str = "/home/ubuntu/src/bert-loves-chemistry/chemberta/masked-lm/cached_norm_10k.csv"):
         print("init dataset")
@@ -98,7 +70,6 @@ class RegressionDataset(Dataset):
         return self.len
 
     def preprocess(self, line):
-        #batch_encoding = self.tokenizer(line[self.smiles_column], add_special_tokens=True, truncation=True, padding="max_length", max_length=self.block_size)
         batch_encoding = self.tokenizer(line[self.smiles_column], add_special_tokens=True, truncation=True, padding="max_length", max_length=self.block_size)
         batch_encoding["label"] = torch.tensor([line[label_column] for label_column in self.label_columns])
         batch_encoding = {k: torch.tensor(v) for k,v in batch_encoding.items()}
@@ -106,7 +77,6 @@ class RegressionDataset(Dataset):
         return batch_encoding
 
     def __getitem__(self, i):
-        #print(f"getting item {i}")
         line = self.dataset[i]
         example = self.preprocess(line)
         return example
