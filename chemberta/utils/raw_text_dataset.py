@@ -45,7 +45,7 @@ class RawTextDataset(Dataset):
         return example
 
 
-class RegressionDataset(Dataset):
+class RegressionDatasetOld(Dataset):
     def __init__(self, tokenizer, file_path: str, block_size:int):
         self.tokenizer = tokenizer
 
@@ -54,7 +54,7 @@ class RegressionDataset(Dataset):
         df = pd.read_csv(file_path)
         sequences_to_embed = df.iloc[:,0].values.tolist()
         labels = df.iloc[:,1:]
-        
+
         self.norm_mean = labels.mean().values.tolist()
         self.norm_std = labels.std().values.tolist()
 
@@ -72,37 +72,41 @@ class RegressionDataset(Dataset):
 
 
 # This dataset is more efficient (supposedly) but has some issues
-class RegressionDatasetLazy(Dataset):
-    def __init__(self, tokenizer, file_path: str, block_size: int):
+class RegressionDataset(Dataset):
+    def __init__(self, tokenizer, file_path: str, block_size: int, norm_path: str = "/home/ubuntu/src/bert-loves-chemistry/chemberta/masked-lm/cached_norm_10k.csv"):
         print("init dataset")
         self.tokenizer = tokenizer
         self.file_path = file_path
         self.block_size = block_size
-        
+
         self.dataset = load_dataset("csv", data_files=file_path)["train"]
-        
+        norm_vals = pd.read_csv(norm_path)
+        self.norm_mean = norm_vals["mean"].values.tolist()
+        self.norm_std = norm_vals["std"].values.tolist()
+
         dataset_columns = list(self.dataset.features.keys())
         self.smiles_column = dataset_columns[0]
         self.label_columns = dataset_columns[1:]
         self.num_labels = len(self.label_columns)
-        
+
         print("Loaded Dataset")
         self.len = len(self.dataset)
         print("Number of lines: " + str(self.len))
         print("Block size: " + str(self.block_size))
-        
+
     def __len__(self):
         return self.len
-    
+
     def preprocess(self, line):
+        #batch_encoding = self.tokenizer(line[self.smiles_column], add_special_tokens=True, truncation=True, padding="max_length", max_length=self.block_size)
         batch_encoding = self.tokenizer(line[self.smiles_column], add_special_tokens=True, truncation=True, padding="max_length", max_length=self.block_size)
         batch_encoding["label"] = torch.tensor([line[label_column] for label_column in self.label_columns])
         batch_encoding = {k: torch.tensor(v) for k,v in batch_encoding.items()}
-        
+
         return batch_encoding
 
     def __getitem__(self, i):
         #print(f"getting item {i}")
         line = self.dataset[i]
         example = self.preprocess(line)
-        return example    
+        return example
