@@ -11,6 +11,13 @@ import pandas as pd
 import torch
 import transformers
 from absl import app, flags
+from chemberta.utils.data_collators import multitask_data_collator
+from chemberta.utils.raw_text_dataset import (
+    RawTextDataset,
+    RegressionDataset,
+    RegressionDatasetLazy,
+)
+from chemberta.utils.roberta_regression import RobertaForRegression
 from nlp.load import DATASETS_PATH
 from tokenizers import ByteLevelBPETokenizer
 from torch.utils.data import random_split
@@ -23,14 +30,6 @@ from transformers import (
     TrainingArguments,
 )
 from transformers.trainer_callback import EarlyStoppingCallback
-
-from chemberta.utils.data_collators import multitask_data_collator
-from chemberta.utils.raw_text_dataset import (
-    RawTextDataset,
-    RegressionDataset,
-    RegressionDatasetLazy,
-)
-from chemberta.utils.roberta_regression import RobertaForRegression
 
 FLAGS = flags.FLAGS
 
@@ -93,34 +92,34 @@ def get_train_test_split(dataset, frac_train):
     return train_dataset, eval_dataset
 
 
-def create_trainer(config, training_args, dataset_args):
+def create_trainer(model_type, config, training_args, dataset_args):
     tokenizer = RobertaTokenizerFast.from_pretrained(
-        FLAGS.tokenizer_path, max_len=FLAGS.max_tokenizer_len
+        dataset_args.tokenizer_path, max_len=dataset_args.max_tokenizer_len
     )
 
-    if FLAGS.model_type == "mlm":
+    if model_type == "mlm":
         dataset = RawTextDataset(
             tokenizer=tokenizer,
-            file_path=FLAGS.dataset_path,
-            block_size=FLAGS.tokenizer_block_size,
+            file_path=dataset_args.dataset_path,
+            block_size=dataset_args.tokenizer_block_size,
         )
         data_collator = DataCollatorForLanguageModeling(
-            tokenizer=tokenizer, mlm=True, mlm_probability=FLAGS.mlm_probability
+            tokenizer=tokenizer, mlm=True, mlm_probability=dataset_args.mlm_probability
         )
         model = RobertaForMaskedLM(config=config)
 
-    if FLAGS.model_type == "regression":
+    if model_type == "regression":
         dataset = RegressionDataset(
             tokenizer=tokenizer,
-            file_path=FLAGS.dataset_path,
-            block_size=FLAGS.tokenizer_block_size,
+            file_path=dataset_args.dataset_path,
+            block_size=dataset_args.tokenizer_block_size,
         )
         config.num_labels = dataset.num_labels
         config.norm_mean = dataset.norm_mean
         config.norm_std = dataset.norm_std
         model = RobertaForRegression(config=config)
 
-    train_dataset, eval_dataset = get_train_test_split(dataset, FLAGS.frac_train)
+    train_dataset, eval_dataset = get_train_test_split(dataset, dataset_args.frac_train)
 
     return Trainer(
         model=model,
@@ -166,7 +165,9 @@ def main(argv):
         fp16=torch.cuda.is_available(),  # fp16 only works on CUDA devices
     )
 
-    trainer = create_trainer(model_config, training_args, dataset_args)
+    trainer = create_trainer(
+        FLAGS.model_type, model_config, training_args, dataset_args
+    )
     trainer.train()
     trainer.save_model(FLAGS.model_name)
 
