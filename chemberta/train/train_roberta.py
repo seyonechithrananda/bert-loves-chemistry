@@ -1,7 +1,7 @@
 """ Script for training a Roberta Model (mlm or regression)
 
 Usage:
-    python train_roberta.py --model_type<--dataset_path=<DATASET_PATH> --model_name=<MODEL_NAME>
+    python train_roberta.py --model_type=<mlm/regression> --dataset_path=<DATASET_PATH> --model_name=<MODEL_NAME>
 """
 
 import os
