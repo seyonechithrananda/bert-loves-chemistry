@@ -9,7 +9,7 @@ Usage [mlm]:
 
 Usage [regression]:
     python train_roberta.py
-        --model_type=mlm
+        --model_type=regression
         --dataset_path=<DATASET_PATH>
         --normalization_path=<PATH_TO_CACHED_NORMS>
         --model_name=<MODEL_NAME>
@@ -57,7 +57,7 @@ flags.DEFINE_float(
 )
 
 # Regression params
-flags.DEFINE_float(name="normalization_path", default=None, help="")
+flags.DEFINE_string(name="normalization_path", default=None, help="")
 
 # Train params
 flags.DEFINE_float(name="frac_train", default=0.95, help="")
@@ -88,7 +88,7 @@ def main(argv):
         FLAGS.normalization_path,
         FLAGS.frac_train,
         FLAGS.tokenizer_path,
-        FLAGS.tokenizer_len,
+        FLAGS.max_tokenizer_len,
         FLAGS.tokenizer_block_size,
         FLAGS.mlm_probability,
     )
