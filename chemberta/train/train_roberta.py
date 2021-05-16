@@ -74,6 +74,8 @@ flags.mark_flag_as_required("model_type")
 
 
 def main(argv):
+    torch.manual_seed(0)
+
     model_config = RobertaConfig(
         vocab_size=FLAGS.vocab_size,
         max_position_embeddings=FLAGS.max_position_embeddings,
