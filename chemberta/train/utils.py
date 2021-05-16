@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from chemberta.utils.data_collators import multitask_data_collator
 from chemberta.utils.raw_text_dataset import RawTextDataset, RegressionDataset
 from chemberta.utils.roberta_regression import RobertaForRegression
+from nlp.features import string_to_arrow
 from torch.utils.data import random_split
 from transformers import (
     DataCollatorForLanguageModeling,
@@ -16,6 +17,8 @@ from transformers.trainer_callback import EarlyStoppingCallback
 
 
 def create_trainer(model_type, config, training_args, dataset_args):
+    print(dataset_args.tokenizer_path)
+    print(dataset_args.max_tokenizer_len)
     tokenizer = RobertaTokenizerFast.from_pretrained(
         dataset_args.tokenizer_path, max_len=dataset_args.max_tokenizer_len
     )
@@ -42,6 +45,8 @@ def create_trainer(model_type, config, training_args, dataset_args):
         config.norm_std = dataset.norm_std
         model = RobertaForRegression(config=config)
 
+        data_collator = multitask_data_collator
+
     train_dataset, eval_dataset = get_train_test_split(dataset, dataset_args.frac_train)
 
     return Trainer(
@@ -56,13 +61,13 @@ def create_trainer(model_type, config, training_args, dataset_args):
 
 @dataclass
 class DatasetArguments:
-    tokenizer_path: str
-    tokenizer_len: int
     dataset_path: str
     normalization_path: str
+    frac_train: float
+    tokenizer_path: str
+    max_tokenizer_len: int
     tokenizer_block_size: int
     mlm_probability: float
-    frac_train: float
 
 
 def get_train_test_split(dataset, frac_train):
