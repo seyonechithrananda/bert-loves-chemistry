@@ -5,14 +5,17 @@ Usage [mlm]:
         --model_type=mlm
         --dataset_path=<DATASET_PATH>
         --mlm_probability=<MLM_MASKING_PROBABILITY>
-        --model_name=<MODEL_NAME>
+        --output_dir=<OUTPUT_DIR>
+        --run_name=<RUN_NAME>
 
 Usage [regression]:
     python train_roberta.py
         --model_type=regression
         --dataset_path=<DATASET_PATH>
         --normalization_path=<PATH_TO_CACHED_NORMS>
-        --model_name=<MODEL_NAME>
+        --output_dir=<OUTPUT_DIR>
+        --run_name=<RUN_NAME>
+>
 """
 
 import os
@@ -49,7 +52,8 @@ flags.DEFINE_integer(name="tokenizer_block_size", default=512, help="")
 
 # Dataset params
 flags.DEFINE_string(name="dataset_path", default=None, help="")
-flags.DEFINE_string(name="model_name", default="PubChem_10M_SMILES_Tokenizer", help="")
+flags.DEFINE_string(name="output_dir", default="default_dir", help="")
+flags.DEFINE_string(name="run_name", default="default_run", help="")
 
 # MLM params
 flags.DEFINE_float(
@@ -75,6 +79,7 @@ flags.mark_flag_as_required("model_type")
 
 def main(argv):
     torch.manual_seed(0)
+    run_dir = os.path.join(FLAGS.output_dir, FLAGS.run_name)
 
     model_config = RobertaConfig(
         vocab_size=FLAGS.vocab_size,
@@ -100,7 +105,7 @@ def main(argv):
         eval_steps=FLAGS.eval_steps,
         logging_steps=FLAGS.logging_steps,
         load_best_model_at_end=True,
-        output_dir=FLAGS.model_name,
+        output_dir=run_dir,
         overwrite_output_dir=FLAGS.overwrite_output_dir,
         num_train_epochs=FLAGS.num_train_epochs,
         per_device_train_batch_size=FLAGS.per_device_train_batch_size,
@@ -113,7 +118,7 @@ def main(argv):
         FLAGS.model_type, model_config, training_args, dataset_args
     )
     trainer.train()
-    trainer.save_model(FLAGS.model_name)
+    trainer.save_model(os.path.join(run_dir, "final"))
 
 
 if __name__ == "__main__":
