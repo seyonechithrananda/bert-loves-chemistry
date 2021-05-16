@@ -1,37 +1,24 @@
 """ Script for training a Roberta Model (mlm or regression)
 
 Usage:
-    python train_roberta.py --dataset_path=<DATASET_PATH> --model_name=<MODEL_NAME>
+    python train_roberta.py --model_type<--dataset_path=<DATASET_PATH> --model_name=<MODEL_NAME>
 """
 
 import os
-from dataclasses import dataclass
 
 import pandas as pd
 import torch
 import transformers
 from absl import app, flags
-from chemberta.utils.data_collators import multitask_data_collator
-from chemberta.utils.raw_text_dataset import (
-    RawTextDataset,
-    RegressionDataset,
-    RegressionDatasetLazy,
-)
-from chemberta.utils.roberta_regression import RobertaForRegression
-from nlp.load import DATASETS_PATH
-from tokenizers import ByteLevelBPETokenizer
-from torch.utils.data import random_split
-from transformers import (
-    DataCollatorForLanguageModeling,
-    RobertaConfig,
-    RobertaForMaskedLM,
-    RobertaTokenizerFast,
-    Trainer,
-    TrainingArguments,
-)
-from transformers.trainer_callback import EarlyStoppingCallback
+from chemberta.train.utils import DatasetArguments, create_trainer
+from transformers import RobertaConfig, TrainingArguments
 
 FLAGS = flags.FLAGS
+
+# Model params
+flags.DEFINE_enum(
+    name="model_type", default="mlm", enum_values=["mlm", "regression"], help=""
+)
 
 # RobertaConfig params
 flags.DEFINE_integer(name="vocab_size", default=512, help="")
@@ -72,63 +59,7 @@ flags.DEFINE_integer(name="save_steps", default=100, help="")
 flags.DEFINE_integer(name="save_total_limit", default=2, help="")
 
 flags.mark_flag_as_required("dataset_path")
-
-
-@dataclass
-class DatasetArguments:
-    tokenizer_path: str
-    tokenizer_len: int
-    dataset_path: str
-    normalization_path: str
-    tokenizer_block_size: int
-    mlm_probability: float
-    frac_train: float
-
-
-def get_train_test_split(dataset, frac_train):
-    train_size = max(int(FLAGS.frac_train * len(dataset)), 1)
-    eval_size = len(dataset) - train_size
-    train_dataset, eval_dataset = random_split(dataset, [train_size, eval_size])
-    return train_dataset, eval_dataset
-
-
-def create_trainer(model_type, config, training_args, dataset_args):
-    tokenizer = RobertaTokenizerFast.from_pretrained(
-        dataset_args.tokenizer_path, max_len=dataset_args.max_tokenizer_len
-    )
-
-    if model_type == "mlm":
-        dataset = RawTextDataset(
-            tokenizer=tokenizer,
-            file_path=dataset_args.dataset_path,
-            block_size=dataset_args.tokenizer_block_size,
-        )
-        data_collator = DataCollatorForLanguageModeling(
-            tokenizer=tokenizer, mlm=True, mlm_probability=dataset_args.mlm_probability
-        )
-        model = RobertaForMaskedLM(config=config)
-
-    if model_type == "regression":
-        dataset = RegressionDataset(
-            tokenizer=tokenizer,
-            file_path=dataset_args.dataset_path,
-            block_size=dataset_args.tokenizer_block_size,
-        )
-        config.num_labels = dataset.num_labels
-        config.norm_mean = dataset.norm_mean
-        config.norm_std = dataset.norm_std
-        model = RobertaForRegression(config=config)
-
-    train_dataset, eval_dataset = get_train_test_split(dataset, dataset_args.frac_train)
-
-    return Trainer(
-        model=model,
-        args=training_args,
-        data_collator=data_collator,
-        train_dataset=train_dataset,
-        eval_dataset=eval_dataset,
-        callbacks=[EarlyStoppingCallback(early_stopping_patience=5)],
-    )
+flags.mark_flag_as_required("model_type")
 
 
 def main(argv):
