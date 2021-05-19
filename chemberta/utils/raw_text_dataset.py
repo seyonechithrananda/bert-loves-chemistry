@@ -45,17 +45,13 @@ class RawTextDataset(Dataset):
         return example
 
 class RegressionDataset(Dataset):
-    def __init__(self, tokenizer, file_path: str, block_size: int, norm_path: str = "/home/ubuntu/src/bert-loves-chemistry/chemberta/masked-lm/cached_norm_10k.csv"):
+    def __init__(self, tokenizer, file_path: str, block_size: int):
         print("init dataset")
         self.tokenizer = tokenizer
         self.file_path = file_path
         self.block_size = block_size
 
         self.dataset = load_dataset("csv", data_files=file_path)["train"]
-        norm_vals = pd.read_csv(norm_path)
-        self.norm_mean = norm_vals["mean"].values.tolist()
-        self.norm_std = norm_vals["std"].values.tolist()
-
         dataset_columns = list(self.dataset.features.keys())
         self.smiles_column = dataset_columns[0]
         self.label_columns = dataset_columns[1:]
