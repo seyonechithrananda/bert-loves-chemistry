@@ -14,6 +14,7 @@ from transformers import (
     TrainingArguments,
 )
 from transformers.trainer_callback import EarlyStoppingCallback
+import json
 
 
 def create_trainer(model_type, config, training_args, dataset_args):
@@ -40,9 +41,13 @@ def create_trainer(model_type, config, training_args, dataset_args):
             file_path=dataset_args.dataset_path,
             block_size=dataset_args.tokenizer_block_size,
         )
+
+        with open(dataset_args.normalization_path) as f:
+            normalization_values = json.load(f)
+
         config.num_labels = dataset.num_labels
-        config.norm_mean = dataset.norm_mean
-        config.norm_std = dataset.norm_std
+        config.norm_mean = normalization_values["mean"]
+        config.norm_std = normalization_values["std"]
         model = RobertaForRegression(config=config)
 
         data_collator = multitask_data_collator
