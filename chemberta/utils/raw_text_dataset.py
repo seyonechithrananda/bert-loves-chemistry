@@ -114,5 +114,5 @@ def get_data_files(train_path):
         ]
     elif os.path.isfile(train_path):
         return train_path
-    else:
-        assert False, "Please pass in a proper train path"
+
+    raise ValueError("Please pass in a proper train path")
