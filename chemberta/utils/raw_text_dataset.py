@@ -1,4 +1,5 @@
 import math
+import os
 
 import pandas as pd
 import torch
@@ -30,7 +31,8 @@ class RawTextDataset(Dataset):
         self.file_path = file_path
         self.block_size = block_size
 
-        self.dataset = load_dataset("text", data_files=file_path)["train"]
+        data_files = get_data_files(file_path)
+        self.dataset = load_dataset("text", data_files=data_files)["train"]
         print("Loaded Dataset")
         self.len = len(self.dataset)
         print("Number of lines: " + str(self.len))
@@ -61,7 +63,8 @@ class RegressionDataset(Dataset):
         self.file_path = file_path
         self.block_size = block_size
 
-        self.dataset = load_dataset("csv", data_files=file_path)["train"]
+        data_files = get_data_files(file_path)
+        self.dataset = load_dataset("csv", data_files=data_files)["train"]
         dataset_columns = list(self.dataset.features.keys())
         self.smiles_column = dataset_columns[0]
         self.label_columns = dataset_columns[1:]
@@ -102,3 +105,14 @@ class RegressionDataset(Dataset):
         line = self.dataset[i]
         example = self.preprocess(line)
         return example
+
+
+def get_data_files(train_path):
+    if os.path.isdir(train_path):
+        return [
+            os.path.join(train_path, file_name) for file_name in os.listdir(train_path)
+        ]
+    elif os.path.isfile(train_path):
+        return train_path
+    else:
+        assert False, "Please pass in a proper train path"
