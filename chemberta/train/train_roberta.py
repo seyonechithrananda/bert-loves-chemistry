@@ -106,6 +106,7 @@ def main(argv):
         logging_steps=FLAGS.logging_steps,
         load_best_model_at_end=True,
         output_dir=run_dir,
+        run_name=FLAGS.run_name,
         overwrite_output_dir=FLAGS.overwrite_output_dir,
         num_train_epochs=FLAGS.num_train_epochs,
         per_device_train_batch_size=FLAGS.per_device_train_batch_size,
