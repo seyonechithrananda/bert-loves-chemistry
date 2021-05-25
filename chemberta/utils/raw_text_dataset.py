@@ -176,7 +176,3 @@ def get_data_files(train_path):
         return train_path
 
     raise ValueError("Please pass in a proper train path")
-
-    
-
-    
