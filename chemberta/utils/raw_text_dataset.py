@@ -1,9 +1,12 @@
 import math
 import os
 
+import numpy as np
 import pandas as pd
 import torch
 from nlp import load_dataset
+from rdkit import Chem
+from rdkit.ML.Descriptors.MoleculeDescriptors import MolecularDescriptorCalculator
 from torch.utils.data import Dataset
 
 
@@ -41,9 +44,9 @@ class RawTextDataset(Dataset):
     def __len__(self):
         return self.len
 
-    def preprocess(self, text):
+    def preprocess(self, feature_dict):
         batch_encoding = self.tokenizer(
-            str(text),
+            feature_dict["text"],
             add_special_tokens=True,
             truncation=True,
             max_length=self.block_size,
@@ -83,9 +86,9 @@ class RegressionDataset(Dataset):
             return 0
         return x
 
-    def preprocess(self, line):
+    def preprocess(self, feature_dict):
         batch_encoding = self.tokenizer(
-            line[self.smiles_column],
+            feature_dict[self.smiles_column],
             add_special_tokens=True,
             truncation=True,
             padding="max_length",
@@ -93,7 +96,7 @@ class RegressionDataset(Dataset):
         )
         batch_encoding["label"] = torch.tensor(
             [
-                self._clean_property(line[label_column])
+                self._clean_property(feature_dict[label_column])
                 for label_column in self.label_columns
             ]
         )
@@ -102,8 +105,65 @@ class RegressionDataset(Dataset):
         return batch_encoding
 
     def __getitem__(self, i):
-        line = self.dataset[i]
-        example = self.preprocess(line)
+        feature_dict = self.dataset[i]
+        example = self.preprocess(feature_dict)
+        return example
+    
+    
+class LazyRegressionDataset(Dataset):
+    """Computes RDKit properties on-the-fly."""
+    def __init__(self, tokenizer, file_path: str, block_size: int):
+        print("init dataset")
+        self.tokenizer = tokenizer
+        self.file_path = file_path
+        self.block_size = block_size
+        
+        self.descriptors = [name for name, _ in Chem.Descriptors.descList]
+        self.descriptors.remove("Ipc")
+        self.calculator = MolecularDescriptorCalculator(self.descriptors)
+        self.num_labels = len(self.descriptors)
+
+        data_files = get_data_files(file_path)
+        self.dataset = load_dataset("text", data_files=data_files)["train"]
+
+        print("Loaded Dataset")
+        self.len = len(self.dataset)
+        print("Number of lines: " + str(self.len))
+        print("Block size: " + str(self.block_size))
+
+    def __len__(self):
+        return self.len
+
+    def _compute_descriptors(self, smiles):
+        mol = Chem.MolFromSmiles(smiles)
+        if mol is None:
+            mol_descriptors = np.full(shape=(self.num_labels), fill_value=0.0)
+        else:
+            mol_descriptors = np.array(list(self.calculator.CalcDescriptors(mol)))
+            mol_descriptors = np.nan_to_num(mol_descriptors, nan=0.0, posinf=0.0, neginf=0.0)
+        assert mol_descriptors.size == self.num_labels
+
+        return mol_descriptors
+
+    def preprocess(self, feature_dict):
+        smiles = feature_dict["text"]
+        batch_encoding = self.tokenizer(
+            smiles,
+            add_special_tokens=True,
+            truncation=True,
+            padding="max_length",
+            max_length=self.block_size,
+        )
+        batch_encoding = {k: torch.tensor(v) for k, v in batch_encoding.items()}
+
+        mol_descriptors = self._compute_descriptors(smiles)
+        batch_encoding["label"] = torch.tensor(mol_descriptors, dtype=torch.float32)
+
+        return batch_encoding
+
+    def __getitem__(self, i):
+        feature_dict = self.dataset[i]
+        example = self.preprocess(feature_dict)
         return example
 
 
