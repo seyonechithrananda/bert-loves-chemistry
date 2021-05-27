@@ -26,6 +26,7 @@ import transformers
 from absl import app, flags
 from chemberta.train.utils import DatasetArguments, create_trainer
 from transformers import RobertaConfig, TrainingArguments
+from transformers.trainer_callback import EarlyStoppingCallback
 
 FLAGS = flags.FLAGS
 
@@ -66,6 +67,7 @@ flags.DEFINE_string(name="normalization_path", default=None, help="")
 # Train params
 flags.DEFINE_float(name="frac_train", default=0.95, help="")
 flags.DEFINE_integer(name="eval_steps", default=10, help="")
+flags.DEFINE_integer(name="early_stopping_patience", default=3, help="")
 flags.DEFINE_integer(name="logging_steps", default=10, help="")
 flags.DEFINE_boolean(name="overwrite_output_dir", default=True, help="")
 flags.DEFINE_integer(name="num_train_epochs", default=100, help="")
@@ -115,8 +117,10 @@ def main(argv):
         fp16=torch.cuda.is_available(),  # fp16 only works on CUDA devices
     )
 
+    callbacks = [EarlyStoppingCallback(early_stopping_patience=FLAGS.early_stopping_patience)]
+
     trainer = create_trainer(
-        FLAGS.model_type, model_config, training_args, dataset_args
+        FLAGS.model_type, model_config, training_args, dataset_args, callbacks
     )
     trainer.train()
     trainer.save_model(os.path.join(run_dir, "final"))
