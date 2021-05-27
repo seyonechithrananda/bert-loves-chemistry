@@ -81,7 +81,7 @@ def main(argv):
     test_labels = test_df.iloc[:, 1].values
 
     train_dataset = MolNetDataset(train_encodings, train_labels)
-    valid_dataset = MolNetDataset(valid_encodings)
+    valid_dataset = MolNetDataset(valid_encodings, valid_labels)
     test_dataset = MolNetDataset(test_encodings)
 
     config = RobertaConfig.from_pretrained(FLAGS.model_dir)
@@ -102,8 +102,7 @@ def main(argv):
             param.requires_grad = False
 
     training_args = TrainingArguments(
-        evaluation_strategy="steps",
-        eval_steps=FLAGS.eval_steps,
+        evaluation_strategy="epoch",
         output_dir=run_dir,
         overwrite_output_dir=FLAGS.overwrite_output_dir,
         num_train_epochs=FLAGS.num_train_epochs,
@@ -123,6 +122,9 @@ def main(argv):
 
     trainer.train()
 
+    # Remake valid_dataset without labels to force unnormalization in regression model
+    valid_dataset = MolNetDataset(valid_encodings)
+    
     eval_model(trainer, valid_dataset, valid_labels, FLAGS.dataset, dataset_type, os.path.join(run_dir, "results_valid"))
     eval_model(trainer, test_dataset, test_labels, FLAGS.dataset, dataset_type, os.path.join(run_dir, "results_test"))
 
