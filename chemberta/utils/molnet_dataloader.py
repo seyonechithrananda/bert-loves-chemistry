@@ -9,6 +9,11 @@ from rdkit import Chem
 
 
 MOLNET_DIRECTORY = {
+    "bace_regression": {
+        "dataset_type": "regression",
+        "load_fn": load_bace_regression,
+        "split": "scaffold",
+    },
     "bbbp": {
         "dataset_type": "classification",
         "load_fn": load_bbbp,
@@ -41,6 +46,11 @@ MOLNET_DIRECTORY = {
 #         "load_fn": load_pcba,
 #         "split": "scaffold",
 #     },
+    "lipo": {
+        "dataset_type": "regression",
+        "load_fn": load_lipo,
+        "split": "scaffold",
+    },
     "qm7": {
         "dataset_type": "regression",
         "load_fn": load_qm7,
