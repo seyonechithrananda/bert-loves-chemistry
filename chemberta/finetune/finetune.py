@@ -40,6 +40,7 @@ flags.DEFINE_string(name="model_dir", default=None, help="")
 flags.DEFINE_boolean(name="freeze_base_model", default=False, help="")
 
 # Train params
+flags.DEFINE_integer(name="eval_steps", default=10, help="")
 flags.DEFINE_integer(name="logging_steps", default=10, help="")
 flags.DEFINE_integer(name="early_stopping_patience", default=3, help="")
 flags.DEFINE_integer(name="num_train_epochs", default=10, help="")
@@ -101,12 +102,15 @@ def main(argv):
             param.requires_grad = False
 
     training_args = TrainingArguments(
+        evaluation_strategy="steps",
+        eval_steps=FLAGS.eval_steps,
         output_dir=run_dir,
         overwrite_output_dir=FLAGS.overwrite_output_dir,
         num_train_epochs=FLAGS.num_train_epochs,
         per_device_train_batch_size=FLAGS.per_device_train_batch_size,
         per_device_eval_batch_size=FLAGS.per_device_eval_batch_size,
         logging_steps=FLAGS.logging_steps,
+        load_best_model_at_end=True,
     )
 
     trainer = Trainer(
@@ -114,7 +118,7 @@ def main(argv):
         args=training_args,
         train_dataset=train_dataset,
         eval_dataset=valid_dataset,
-        callbacks=[EarlyStoppingCallback(early_stopping_patience=3)],
+        callbacks=[EarlyStoppingCallback(early_stopping_patience=FLAGS.early_stopping_patience)],
     )
 
     trainer.train()
