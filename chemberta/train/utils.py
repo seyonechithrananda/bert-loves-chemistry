@@ -13,11 +13,11 @@ from transformers import (
     Trainer,
     TrainingArguments,
 )
-from transformers.trainer_callback import EarlyStoppingCallback
+from typing import List
 import json
 
 
-def create_trainer(model_type, config, training_args, dataset_args):
+def create_trainer(model_type, config, training_args, dataset_args, callbacks: List):
     print(dataset_args.tokenizer_path)
     print(dataset_args.max_tokenizer_len)
     tokenizer = RobertaTokenizerFast.from_pretrained(
@@ -80,7 +80,7 @@ def create_trainer(model_type, config, training_args, dataset_args):
         data_collator=data_collator,
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
-        callbacks=[EarlyStoppingCallback(early_stopping_patience=5)],
+        callbacks=callbacks,
     )
 
 

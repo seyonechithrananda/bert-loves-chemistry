@@ -24,6 +24,9 @@ from transformers import RobertaTokenizerFast, RobertaForSequenceClassification,
 from chemberta.utils.molnet_dataloader import get_dataset_info, load_molnet_dataset
 from chemberta.utils.roberta_regression import RobertaForRegression
 
+from transformers.trainer_callback import EarlyStoppingCallback
+
+
 FLAGS = flags.FLAGS
 
 # Settings
@@ -38,7 +41,8 @@ flags.DEFINE_boolean(name="freeze_base_model", default=False, help="")
 
 # Train params
 flags.DEFINE_integer(name="logging_steps", default=10, help="")
-flags.DEFINE_integer(name="num_train_epochs", default=3, help="")
+flags.DEFINE_integer(name="early_stopping_patience", default=3, help="")
+flags.DEFINE_integer(name="num_train_epochs", default=10, help="")
 flags.DEFINE_integer(name="per_device_train_batch_size", default=64, help="")
 flags.DEFINE_integer(name="per_device_eval_batch_size", default=64, help="")
 
@@ -110,6 +114,7 @@ def main(argv):
         args=training_args,
         train_dataset=train_dataset,
         eval_dataset=valid_dataset,
+        callbacks=[EarlyStoppingCallback(early_stopping_patience=3)],
     )
 
     trainer.train()
