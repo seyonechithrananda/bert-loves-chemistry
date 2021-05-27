@@ -80,6 +80,10 @@ MOLNET_DIRECTORY = {
 }
 
 
+def get_dataset_info(name: str):
+    return MOLNET_DIRECTORY[name]
+
+
 def load_molnet_dataset(name: str, split: str = None, tasks_wanted: List = None, df_format: str = "chemberta"):
     """Loads a MolNet dataset into a DataFrame ready for either chemberta or chemprop.
     
