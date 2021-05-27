@@ -55,6 +55,7 @@ flags.DEFINE_integer(name="num_train_epochs", default=10, help="")
 flags.DEFINE_integer(name="per_device_train_batch_size", default=64, help="")
 flags.DEFINE_integer(name="per_device_eval_batch_size", default=64, help="")
 flags.DEFINE_integer(name="n_trials", default=5, help="")
+flags.DEFINE_integer(name="n_seeds", default=5, help="")
 
 # Dataset params
 flags.DEFINE_string(name="dataset", default=None, help="")
@@ -157,31 +158,33 @@ def main(argv):
         n_trials=FLAGS.n_trials,
     )
 
+    # Remake valid_dataset without labels to force unnormalization in regression model
+    valid_dataset = MolNetDataset(valid_encodings)
+
     # Set parameters to the best ones from the hp search
     for n, v in best_trial.hyperparameters.items():
         setattr(trainer.args, n, v)
 
-    trainer.train()
-
-    # Remake valid_dataset without labels to force unnormalization in regression model
-    valid_dataset = MolNetDataset(valid_encodings)
-
-    eval_model(
-        trainer,
-        valid_dataset,
-        valid_labels,
-        FLAGS.dataset,
-        dataset_type,
-        os.path.join(run_dir, "results_valid"),
-    )
-    eval_model(
-        trainer,
-        test_dataset,
-        test_labels,
-        FLAGS.dataset,
-        dataset_type,
-        os.path.join(run_dir, "results_test"),
-    )
+    # Run with several seeds so we can see std
+    for random_seed in range(FLAGS.n_seeds):
+        setattr(trainer.args, "seed", random_seed)
+        trainer.train()
+        eval_model(
+            trainer,
+            valid_dataset,
+            valid_labels,
+            FLAGS.dataset,
+            dataset_type,
+            os.path.join(run_dir, f"results_valid_{random_seed}"),
+        )
+        eval_model(
+            trainer,
+            test_dataset,
+            test_labels,
+            FLAGS.dataset,
+            dataset_type,
+            os.path.join(run_dir, f"results_test_{random_seed}"),
+        )
 
 
 def eval_model(trainer, dataset, labels, dataset_name, dataset_type, output_dir):
