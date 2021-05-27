@@ -61,26 +61,26 @@ flags.mark_flag_as_required("model_dir")
 def main(argv):
     torch.manual_seed(FLAGS.seed)
     run_dir = os.path.join(FLAGS.output_dir, FLAGS.run_name)
-    
+
     tasks, (train_df, valid_df, test_df), transformers = load_molnet_dataset(FLAGS.dataset, split=FLAGS.split, df_format="chemprop")
     assert(len(tasks) == 1)
-    
-    tokenizer = RobertaTokenizerFast.from_pretrained('seyonec/SMILES_tokenized_PubChem_shard00_160k', max_len=FLAGS.max_tokenizer_len)
-    
+
+    tokenizer = RobertaTokenizerFast.from_pretrained(FLAGS.tokenizer_path, max_len=FLAGS.max_tokenizer_len)
+
     train_encodings = tokenizer(train_df["smiles"].tolist(), truncation=True, padding=True)
     valid_encodings = tokenizer(valid_df["smiles"].tolist(), truncation=True, padding=True)
     test_encodings = tokenizer(test_df["smiles"].tolist(), truncation=True, padding=True)
-    
+
     train_labels = train_df.iloc[:, 1].values
     valid_labels = valid_df.iloc[:, 1].values
     test_labels = test_df.iloc[:, 1].values
-    
+
     train_dataset = MolNetDataset(train_encodings, train_labels)
     valid_dataset = MolNetDataset(valid_encodings)
     test_dataset = MolNetDataset(test_encodings)
-    
+
     config = RobertaConfig.from_pretrained(FLAGS.model_dir)
-    
+
     dataset_type = get_dataset_info(FLAGS.dataset)["dataset_type"]
     if dataset_type == "classification":
         model_class = RobertaForSequenceClassification
@@ -91,11 +91,11 @@ def main(argv):
         config.norm_std = [np.std(np.array(train_labels), axis=0)]
 
     model = model_class.from_pretrained(FLAGS.model_dir, config=config)
-    
+
     if FLAGS.freeze_base_model:
         for name, param in model.base_model.named_parameters():
             param.requires_grad = False
-            
+
     training_args = TrainingArguments(
         output_dir=run_dir,
         overwrite_output_dir=FLAGS.overwrite_output_dir,
@@ -104,16 +104,16 @@ def main(argv):
         per_device_eval_batch_size=FLAGS.per_device_eval_batch_size,
         logging_steps=FLAGS.logging_steps,
     )
-    
+
     trainer = Trainer(
         model=model,
         args=training_args,
         train_dataset=train_dataset,
         eval_dataset=valid_dataset,
     )
-    
+
     trainer.train()
-    
+
     eval_model(trainer, valid_dataset, valid_labels, FLAGS.dataset, dataset_type, os.path.join(run_dir, "results_valid"))
     eval_model(trainer, test_dataset, test_labels, FLAGS.dataset, dataset_type, os.path.join(run_dir, "results_test"))
 
