@@ -47,10 +47,10 @@ def main(argv):
         df_all = pd.concat(df_list, axis=0)
         df_mean = df_all.groupby("dataset").mean()
         df_std = df_all.groupby("dataset").std()
-
-        df_mean.to_csv(os.path.join(FLAGS.run_dir, f"metrics_{split}_mean.csv"))
-        df_std.to_csv(os.path.join(FLAGS.run_dir, f"metrics_{split}_std.csv"))
         
+        df_final = df_mean.round(4).astype(str) + " ± " + df_std.round(4).astype(str)
+
+        df_final.to_csv(os.path.join(FLAGS.run_dir, f"metrics_aggregated_{split}.csv"))        
 
 if __name__ == "__main__":
     app.run(main)
