@@ -8,7 +8,7 @@ python finetune.py --datasets=delaney --model_dir=/home/ubuntu/chemberta_models/
 
 [multiple]
 python finetune.py \
---datasets=clearance,clintox,delaney,lipo \
+--datasets=bace_classification,bace_regression,bbbp,clearance,clintox,delaney,lipo \
 --model_dir=/home/ubuntu/chemberta_models/mlm/sm_015/ \
 --n_trials=20 \
 --output_dir=finetuning_experiments \
