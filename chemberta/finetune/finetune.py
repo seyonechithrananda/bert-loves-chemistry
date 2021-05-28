@@ -7,7 +7,12 @@ python finetune.py --datasets=bbbp --model_dir=/home/ubuntu/chemberta_models/mlm
 python finetune.py --datasets=delaney --model_dir=/home/ubuntu/chemberta_models/mlm/sm_015/
 
 [multiple]
-python finetune.py --datasets=bace_classification,bace_regression,bbbp,clearance,clintox,delaney,lipo --model_dir=/home/ubuntu/chemberta_models/mlm/sm_015/
+python finetune.py \
+--datasets=clearance,clintox,delaney,lipo \
+--model_dir=/home/ubuntu/chemberta_models/mlm/sm_015/ \
+--n_trials=20 \
+--output_dir=finetuning_experiments \
+--run_name=run1 \
 
 """
 
@@ -15,12 +20,13 @@ import json
 import matplotlib.pyplot as plt
 import numpy as np
 import os
-from functools import partial
 import seaborn as sns
+import shutil
 import torch
 import wandb
 
 from absl import app, flags
+from glob import glob
 from scipy.special import softmax
 from scipy.stats import pearsonr
 from sklearn.metrics import average_precision_score, mean_squared_error, roc_auc_score
@@ -209,6 +215,10 @@ def finetune_single_dataset(dataset_name):
         json.dump(metrics_valid, f)
     with open(os.path.join(dir_test, "metrics.json"), "w") as f:
         json.dump(metrics_test, f)
+
+    # Delete checkpoints from hyperparameter search since they use a lot of disk
+    for d in glob(os.path.join(run_dir, "run-*")):
+        shutil.rmtree(d, ignore_errors=True)
 
 
 def eval_model(trainer, dataset, labels, dataset_name, dataset_type, output_dir, random_seed):
