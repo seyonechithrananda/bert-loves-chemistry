@@ -1,7 +1,9 @@
+from typing import Dict, List
+
 import torch
-from typing import List, Dict
 from transformers.data.data_collator import InputDataClass
 from transformers.tokenization_utils_base import BatchEncoding
+
 
 def multitask_data_collator(features: List[InputDataClass]) -> Dict[str, torch.Tensor]:
     """
@@ -12,7 +14,6 @@ def multitask_data_collator(features: List[InputDataClass]) -> Dict[str, torch.T
     # have the same attributes.
     # So we will look at the first element as a proxy for what attributes exist
     # on the whole batch.
-    print(f"collating {len(features)} items")
     if not isinstance(features[0], (dict, BatchEncoding)):
         features = [vars(f) for f in features]
 
@@ -29,5 +30,5 @@ def multitask_data_collator(features: List[InputDataClass]) -> Dict[str, torch.T
                 batch[k] = torch.stack([f[k] for f in features])
             else:
                 batch[k] = torch.tensor([f[k] for f in features])
-                
+
     return batch
