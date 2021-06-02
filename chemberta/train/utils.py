@@ -1,7 +1,14 @@
+import json
 from dataclasses import dataclass
+from typing import List
 
 from chemberta.utils.data_collators import multitask_data_collator
-from chemberta.utils.raw_text_dataset import RawTextDataset, RegressionDataset, LazyRegressionDataset
+from chemberta.utils.raw_text_dataset import (
+    LazyRegressionDataset,
+    RawTextDataset,
+    RegressionDataset,
+    RegressionTextDataset,
+)
 from chemberta.utils.roberta_regression import RobertaForRegression
 from nlp.features import string_to_arrow
 from torch.utils.data import random_split
@@ -13,8 +20,6 @@ from transformers import (
     Trainer,
     TrainingArguments,
 )
-from typing import List
-import json
 
 
 def create_trainer(model_type, config, training_args, dataset_args, callbacks: List):
@@ -36,7 +41,7 @@ def create_trainer(model_type, config, training_args, dataset_args, callbacks: L
         model = RobertaForMaskedLM(config=config)
 
     elif model_type == "regression":
-        dataset = RegressionDataset(
+        dataset = RegressionTextDataset(
             tokenizer=tokenizer,
             file_path=dataset_args.dataset_path,
             block_size=dataset_args.tokenizer_block_size,
