@@ -109,6 +109,50 @@ class RegressionDataset(Dataset):
         return example
 
 
+class RegressionTextDataset(Dataset):
+    def __init__(self, tokenizer, file_path: str, block_size: int):
+        print("init dataset")
+        self.tokenizer = tokenizer
+        self.file_path = file_path
+        self.block_size = block_size
+
+        data_files = get_data_files(file_path)
+        self.dataset = load_dataset("text", data_files=data_files)["train"]
+        example_line = self.dataset[0]
+        self.num_labels = len(example_line.split(",")) - 1
+
+        print("Loaded Dataset")
+        self.len = len(self.dataset)
+        print("Number of lines: " + str(self.len))
+        print("Block size: " + str(self.block_size))
+
+    def __len__(self):
+        return self.len
+
+    def _clean_property(self, x):
+        if x is None or math.isnan(x) or math.isinf(x):
+            return 0
+        return x
+
+    def preprocess(self, line):
+        line = line.split(",")
+        batch_encoding = self.tokenizer(
+            line[0],
+            add_special_tokens=True,
+            truncation=True,
+            padding="max_length",
+            max_length=self.block_size,
+        )
+        batch_encoding["label"] = torch.tensor([self._clean_property(x) for x in line])
+        batch_encoding = {k: torch.tensor(v) for k, v in batch_encoding.items()}
+
+        return batch_encoding
+
+    def __getitem__(self, i):
+        example = self.preprocess(self.dataset[i])
+        return example
+
+
 class LazyRegressionDataset(Dataset):
     """Computes RDKit properties on-the-fly."""
 
