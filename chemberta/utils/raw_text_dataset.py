@@ -94,12 +94,11 @@ class RegressionDataset(Dataset):
             padding="max_length",
             max_length=self.block_size,
         )
-        batch_encoding["label"] = torch.tensor(
-            [
-                self._clean_property(feature_dict[label_column])
-                for label_column in self.label_columns
-            ]
-        )
+        batch_encoding["label"] = [
+            self._clean_property(feature_dict[label_column])
+            for label_column in self.label_columns
+        ]
+
         batch_encoding = {k: torch.tensor(v) for k, v in batch_encoding.items()}
 
         return batch_encoding
@@ -108,16 +107,17 @@ class RegressionDataset(Dataset):
         feature_dict = self.dataset[i]
         example = self.preprocess(feature_dict)
         return example
-    
-    
+
+
 class LazyRegressionDataset(Dataset):
     """Computes RDKit properties on-the-fly."""
+
     def __init__(self, tokenizer, file_path: str, block_size: int):
         print("init dataset")
         self.tokenizer = tokenizer
         self.file_path = file_path
         self.block_size = block_size
-        
+
         self.descriptors = [name for name, _ in Chem.Descriptors.descList]
         self.descriptors.remove("Ipc")
         self.calculator = MolecularDescriptorCalculator(self.descriptors)
@@ -140,7 +140,9 @@ class LazyRegressionDataset(Dataset):
             mol_descriptors = np.full(shape=(self.num_labels), fill_value=0.0)
         else:
             mol_descriptors = np.array(list(self.calculator.CalcDescriptors(mol)))
-            mol_descriptors = np.nan_to_num(mol_descriptors, nan=0.0, posinf=0.0, neginf=0.0)
+            mol_descriptors = np.nan_to_num(
+                mol_descriptors, nan=0.0, posinf=0.0, neginf=0.0
+            )
         assert mol_descriptors.size == self.num_labels
 
         return mol_descriptors
