@@ -146,9 +146,7 @@ class RegressionTextDataset(Dataset):
             padding="max_length",
             max_length=self.block_size,
         )
-        batch_encoding["label"] = torch.tensor(
-            [self._clean_property(x) for x in labels]
-        )
+        batch_encoding["label"] = [self._clean_property(x) for x in labels]
         batch_encoding = {k: torch.tensor(v) for k, v in batch_encoding.items()}
 
         return batch_encoding
