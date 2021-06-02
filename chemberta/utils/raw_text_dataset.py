@@ -119,7 +119,7 @@ class RegressionTextDataset(Dataset):
         data_files = get_data_files(file_path)
         self.dataset = load_dataset("text", data_files=data_files)["train"]
         example_line = self.dataset[0]
-        self.num_labels = len(example_line.split(",")) - 1
+        self.num_labels = len(example_line["text"].split(",")) - 1
 
         print("Loaded Dataset")
         self.len = len(self.dataset)
@@ -130,26 +130,31 @@ class RegressionTextDataset(Dataset):
         return self.len
 
     def _clean_property(self, x):
-        if x is None or math.isnan(x) or math.isinf(x):
+        if x == "" or "inf" in x:
             return 0
-        return x
+        return float(x)
 
     def preprocess(self, line):
         line = line.split(",")
+        smiles = line[0]
+        labels = line[1:]
+
         batch_encoding = self.tokenizer(
-            line[0],
+            smiles,
             add_special_tokens=True,
             truncation=True,
             padding="max_length",
             max_length=self.block_size,
         )
-        batch_encoding["label"] = torch.tensor([self._clean_property(x) for x in line])
+        batch_encoding["label"] = torch.tensor(
+            [self._clean_property(x) for x in labels]
+        )
         batch_encoding = {k: torch.tensor(v) for k, v in batch_encoding.items()}
 
         return batch_encoding
 
     def __getitem__(self, i):
-        example = self.preprocess(self.dataset[i])
+        example = self.preprocess(self.dataset[i]["text"])
         return example
 
 
