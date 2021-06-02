@@ -8,11 +8,11 @@ python finetune.py --datasets=delaney --model_dir=/home/ubuntu/chemberta_models/
 
 [multiple]
 python finetune.py \
---datasets=bace_classification,bace_regression,bbbp,clearance,clintox,delaney,lipo \
+--datasets=bace_classification,bace_regression,bbbp,clearance,clintox,delaney,lipo,tox21 \
 --model_dir=/home/ubuntu/chemberta_models/mlm/sm_015/ \
 --n_trials=20 \
 --output_dir=finetuning_experiments \
---run_name=run1 \
+--run_name=sm_015
 
 """
 
@@ -86,13 +86,18 @@ os.environ["WANDB_DISABLED"] = "true"
 
 def main(argv):
     for dataset_name in FLAGS.datasets:
-        print(f"Finetuning on {dataset_name}")
-        finetune_single_dataset(dataset_name)
-    
-    
-def finetune_single_dataset(dataset_name):
+        run_dir = os.path.join(FLAGS.output_dir, FLAGS.run_name, dataset_name)
+
+        if os.path.exists(run_dir):
+            print(f"Run dir already exists for dataset: {dataset_name}")
+        else:
+            print(f"Finetuning on {dataset_name}")
+            finetune_single_dataset(dataset_name, run_dir)
+
+
+def finetune_single_dataset(dataset_name, run_dir):
     torch.manual_seed(FLAGS.seed)
-    run_dir = os.path.join(FLAGS.output_dir, FLAGS.run_name, dataset_name)
+    
 
     tasks, (train_df, valid_df, test_df), transformers = load_molnet_dataset(
         dataset_name, split=FLAGS.split, df_format="chemprop"
