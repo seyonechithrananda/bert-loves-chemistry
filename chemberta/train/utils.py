@@ -6,7 +6,6 @@ from chemberta.utils.data_collators import multitask_data_collator
 from chemberta.utils.raw_text_dataset import (
     LazyRegressionDataset,
     RawTextDataset,
-    RegressionDataset,
     RegressionTextDataset,
 )
 from chemberta.utils.roberta_regression import RobertaForRegression
