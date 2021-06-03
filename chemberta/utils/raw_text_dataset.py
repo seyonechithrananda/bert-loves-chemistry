@@ -94,12 +94,11 @@ class RegressionDataset(Dataset):
             padding="max_length",
             max_length=self.block_size,
         )
-        batch_encoding["label"] = torch.tensor(
-            [
-                self._clean_property(feature_dict[label_column])
-                for label_column in self.label_columns
-            ]
-        )
+        batch_encoding["label"] = [
+            self._clean_property(feature_dict[label_column])
+            for label_column in self.label_columns
+        ]
+
         batch_encoding = {k: torch.tensor(v) for k, v in batch_encoding.items()}
 
         return batch_encoding
@@ -108,16 +107,65 @@ class RegressionDataset(Dataset):
         feature_dict = self.dataset[i]
         example = self.preprocess(feature_dict)
         return example
-    
-    
+
+
+class RegressionTextDataset(Dataset):
+    def __init__(self, tokenizer, file_path: str, block_size: int):
+        print("Initializing dataset...")
+        self.tokenizer = tokenizer
+        self.file_path = file_path
+        self.block_size = block_size
+
+        print("Inferring CSV structure from first line...")
+        data_files = get_data_files(file_path)
+        self.dataset = load_dataset("text", data_files=data_files)["train"]
+        example_line = self.dataset[0]
+        self.num_labels = len(example_line["text"].split(",")) - 1
+
+        print("Loaded Dataset")
+        self.len = len(self.dataset)
+        print("Number of lines: " + str(self.len))
+        print("Block size: " + str(self.block_size))
+
+    def __len__(self):
+        return self.len
+
+    def _clean_property(self, x):
+        if x == "" or "inf" in x:
+            return 0
+        return float(x)
+
+    def preprocess(self, line):
+        line = line.split(",")
+        smiles = line[0]
+        labels = line[1:]
+
+        batch_encoding = self.tokenizer(
+            smiles,
+            add_special_tokens=True,
+            truncation=True,
+            padding="max_length",
+            max_length=self.block_size,
+        )
+        batch_encoding["label"] = [self._clean_property(x) for x in labels]
+        batch_encoding = {k: torch.tensor(v) for k, v in batch_encoding.items()}
+
+        return batch_encoding
+
+    def __getitem__(self, i):
+        example = self.preprocess(self.dataset[i]["text"])
+        return example
+
+
 class LazyRegressionDataset(Dataset):
     """Computes RDKit properties on-the-fly."""
+
     def __init__(self, tokenizer, file_path: str, block_size: int):
         print("init dataset")
         self.tokenizer = tokenizer
         self.file_path = file_path
         self.block_size = block_size
-        
+
         self.descriptors = [name for name, _ in Chem.Descriptors.descList]
         self.descriptors.remove("Ipc")
         self.calculator = MolecularDescriptorCalculator(self.descriptors)
@@ -140,7 +188,9 @@ class LazyRegressionDataset(Dataset):
             mol_descriptors = np.full(shape=(self.num_labels), fill_value=0.0)
         else:
             mol_descriptors = np.array(list(self.calculator.CalcDescriptors(mol)))
-            mol_descriptors = np.nan_to_num(mol_descriptors, nan=0.0, posinf=0.0, neginf=0.0)
+            mol_descriptors = np.nan_to_num(
+                mol_descriptors, nan=0.0, posinf=0.0, neginf=0.0
+            )
         assert mol_descriptors.size == self.num_labels
 
         return mol_descriptors
