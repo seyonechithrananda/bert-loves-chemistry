@@ -9,7 +9,7 @@ python finetune.py --datasets=delaney --model_dir=/home/ubuntu/chemberta_models/
 [multiple]
 python finetune.py \
 --datasets=bace_classification,bace_regression,bbbp,clearance,clintox,delaney,lipo,tox21 \
---model_dir=/home/ubuntu/chemberta_models/mlm/sm_015/ \
+--model_dir=/home/ubuntu/chemberta_models/mlm/sm_015/sm_015/final/ \
 --n_trials=20 \
 --output_dir=finetuning_experiments \
 --run_name=sm_015
@@ -59,7 +59,7 @@ flags.DEFINE_boolean(name="freeze_base_model", default=False, help="")
 # Train params
 flags.DEFINE_integer(name="logging_steps", default=10, help="")
 flags.DEFINE_integer(name="early_stopping_patience", default=3, help="")
-flags.DEFINE_integer(name="num_train_epochs", default=10, help="")
+flags.DEFINE_integer(name="num_train_epochs_max", default=10, help="")
 flags.DEFINE_integer(name="per_device_train_batch_size", default=64, help="")
 flags.DEFINE_integer(name="per_device_eval_batch_size", default=64, help="")
 flags.DEFINE_integer(name="n_trials", default=5, help="")
@@ -154,8 +154,6 @@ def finetune_single_dataset(dataset_name, run_dir):
         evaluation_strategy="epoch",
         output_dir=run_dir,
         overwrite_output_dir=FLAGS.overwrite_output_dir,
-        num_train_epochs=FLAGS.num_train_epochs,
-        per_device_train_batch_size=FLAGS.per_device_train_batch_size,
         per_device_eval_batch_size=FLAGS.per_device_eval_batch_size,
         logging_steps=FLAGS.logging_steps,
         load_best_model_at_end=True,
@@ -171,10 +169,19 @@ def finetune_single_dataset(dataset_name, run_dir):
             EarlyStoppingCallback(early_stopping_patience=FLAGS.early_stopping_patience)
         ],
     )
+    
+    def custom_hp_space_optuna(trial):
+        return {
+            "learning_rate": trial.suggest_float("learning_rate", 1e-6, 1e-4, log=True),
+            "num_train_epochs": trial.suggest_int("num_train_epochs", 1, FLAGS.num_train_epochs_max),
+            "seed": trial.suggest_int("seed", 1, 40),
+            "per_device_train_batch_size": trial.suggest_categorical("per_device_train_batch_size", [FLAGS.per_device_train_batch_size]),
+        }
 
     best_trial = trainer.hyperparameter_search(
         backend="optuna",
         direction="minimize",
+        hp_space=custom_hp_space_optuna,
         n_trials=FLAGS.n_trials,
     )
 
