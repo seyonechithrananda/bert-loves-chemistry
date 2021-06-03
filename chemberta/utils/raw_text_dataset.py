@@ -111,11 +111,12 @@ class RegressionDataset(Dataset):
 
 class RegressionTextDataset(Dataset):
     def __init__(self, tokenizer, file_path: str, block_size: int):
-        print("init dataset")
+        print("Initializing dataset...")
         self.tokenizer = tokenizer
         self.file_path = file_path
         self.block_size = block_size
 
+        print("Inferring CSV structure from first line...")
         data_files = get_data_files(file_path)
         self.dataset = load_dataset("text", data_files=data_files)["train"]
         example_line = self.dataset[0]
