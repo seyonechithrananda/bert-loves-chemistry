@@ -9,6 +9,11 @@ from rdkit import Chem
 
 
 MOLNET_DIRECTORY = {
+    "bace_classification": {
+        "dataset_type": "classification",
+        "load_fn": load_bace_classification,
+        "split": "scaffold",
+    },
     "bace_regression": {
         "dataset_type": "regression",
         "load_fn": load_bace_regression,
