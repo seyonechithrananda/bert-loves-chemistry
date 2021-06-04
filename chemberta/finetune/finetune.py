@@ -1,15 +1,15 @@
 """Script for finetuning and evaluating pre-trained ChemBERTa models on MoleculeNet tasks.
 
 [classification]
-python finetune.py --datasets=bbbp --model_dir=/home/ubuntu/chemberta_models/mlm/sm_015/
+python finetune.py --datasets=bbbp --model_dir=DeepChem/ChemBERTa-SM-015
 
 [regression]
-python finetune.py --datasets=delaney --model_dir=/home/ubuntu/chemberta_models/mlm/sm_015/
+python finetune.py --datasets=delaney --model_dir=DeepChem/ChemBERTa-SM-015
 
 [multiple]
 python finetune.py \
 --datasets=bace_classification,bace_regression,bbbp,clearance,clintox,delaney,lipo,tox21 \
---model_dir=/home/ubuntu/chemberta_models/mlm/sm_015/sm_015/final/ \
+--model_dir=DeepChem/ChemBERTa-SM-015 \
 --n_trials=20 \
 --output_dir=finetuning_experiments \
 --run_name=sm_015
@@ -98,7 +98,7 @@ def finetune_single_dataset(dataset_name, run_dir):
     assert len(tasks) == 1
 
     tokenizer = RobertaTokenizerFast.from_pretrained(
-        FLAGS.tokenizer_path, max_len=FLAGS.max_tokenizer_len
+        FLAGS.tokenizer_path, max_len=FLAGS.max_tokenizer_len, use_auth_token=True
     )
 
     train_encodings = tokenizer(
@@ -119,7 +119,7 @@ def finetune_single_dataset(dataset_name, run_dir):
     valid_dataset = MolNetDataset(valid_encodings, valid_labels)
     test_dataset = MolNetDataset(test_encodings)
 
-    config = RobertaConfig.from_pretrained(FLAGS.model_dir)
+    config = RobertaConfig.from_pretrained(FLAGS.model_dir, use_auth_token=True)
 
     dataset_type = get_dataset_info(dataset_name)["dataset_type"]
     if dataset_type == "classification":
@@ -137,7 +137,7 @@ def finetune_single_dataset(dataset_name, run_dir):
             model_class = RobertaForSequenceClassification
         elif dataset_type == "regression":
             model_class = RobertaForRegression
-        model = model_class.from_pretrained(FLAGS.model_dir, config=config)
+        model = model_class.from_pretrained(FLAGS.model_dir, config=config, use_auth_token=True)
 
         if FLAGS.freeze_base_model:
             for name, param in model.base_model.named_parameters():
