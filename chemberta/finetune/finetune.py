@@ -44,11 +44,11 @@ FLAGS = flags.FLAGS
 flags.DEFINE_string(name="output_dir", default="default_dir", help="")
 flags.DEFINE_boolean(name="overwrite_output_dir", default=True, help="")
 flags.DEFINE_string(name="run_name", default="default_run", help="")
-flags.DEFINE_integer(name="seed", default=0, help="")
+flags.DEFINE_integer(name="seed", default=0, help="Global random seed.")
 
 # Model params
-flags.DEFINE_string(name="model_dir", default=None, help="")
-flags.DEFINE_boolean(name="freeze_base_model", default=False, help="")
+flags.DEFINE_string(name="model_dir", default=None, help="Path to local model_dir or model on HuggingFace Model Hub.")
+flags.DEFINE_boolean(name="freeze_base_model", default=False, help="If true, freezes the parameters of the base model during training. Only the classification/regression head parameters will be trained.")
 
 # Train params
 flags.DEFINE_integer(name="logging_steps", default=10, help="")
@@ -56,12 +56,12 @@ flags.DEFINE_integer(name="early_stopping_patience", default=3, help="")
 flags.DEFINE_integer(name="num_train_epochs_max", default=10, help="")
 flags.DEFINE_integer(name="per_device_train_batch_size", default=64, help="")
 flags.DEFINE_integer(name="per_device_eval_batch_size", default=64, help="")
-flags.DEFINE_integer(name="n_trials", default=5, help="")
-flags.DEFINE_integer(name="n_seeds", default=5, help="")
+flags.DEFINE_integer(name="n_trials", default=5, help="Number of different hyperparameter combinations to try. Each combination will result in a different finetuned model.")
+flags.DEFINE_integer(name="n_seeds", default=5, help="Number of unique random seeds to try. This only applies to the final best model selected after hyperparameter tuning.")
 
 # Dataset params
-flags.DEFINE_list(name="datasets", default=None, help="")
-flags.DEFINE_string(name="split", default="scaffold", help="")
+flags.DEFINE_list(name="datasets", default=None, help="Comma-separated list of MoleculeNet dataset names.")
+flags.DEFINE_string(name="split", default="scaffold", help="DeepChem data loader split_type.")
 
 # Tokenizer params
 flags.DEFINE_string(

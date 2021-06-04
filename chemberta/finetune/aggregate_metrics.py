@@ -1,3 +1,5 @@
+"""Collates metrics of all datasets across a finetuning experiment."""
+
 import json
 import os
 import pandas as pd
