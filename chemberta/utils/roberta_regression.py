@@ -1,13 +1,13 @@
 import math
+from dataclasses import dataclass
+from typing import Dict, List, Optional, Tuple
 
 import torch
 import torch.nn as nn
 import torch.utils.checkpoint
 from torch.nn import CrossEntropyLoss, MSELoss
-from transformers import RobertaModel, PreTrainedModel
-from dataclasses import dataclass
+from transformers import PreTrainedModel, RobertaModel
 from transformers.file_utils import ModelOutput
-from typing import Optional, Tuple, List, Dict
 from transformers.models.roberta.modeling_roberta import RobertaPreTrainedModel
 
 
@@ -90,7 +90,9 @@ class RobertaForSequenceClassification(RobertaPreTrainedModel):
             config.num_labels - 1]`. If :obj:`config.num_labels == 1` a regression loss is computed (Mean-Square loss),
             If :obj:`config.num_labels > 1` a classification loss is computed (Cross-Entropy).
         """
-        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
+        return_dict = (
+            return_dict if return_dict is not None else self.config.use_return_dict
+        )
 
         outputs = self.roberta(
             input_ids,
@@ -138,9 +140,14 @@ class RobertaForRegression(RobertaPreTrainedModel):
         super().__init__(config)
         self.num_labels = config.num_labels
 
-        self.register_buffer('norm_mean', torch.tensor(config.norm_mean))
+        self.register_buffer("norm_mean", torch.tensor(config.norm_mean))
         # Replace any 0 stddev norms with 1
-        self.register_buffer('norm_std', torch.tensor([label_std if label_std != 0 else 1 for label_std in config.norm_std]))
+        self.register_buffer(
+            "norm_std",
+            torch.tensor(
+                [label_std if label_std != 0 else 1 for label_std in config.norm_std]
+            ),
+        )
 
         self.roberta = RobertaModel(config, add_pooling_layer=False)
         self.regression = RobertaRegressionHead(config)
@@ -166,7 +173,9 @@ class RobertaForRegression(RobertaPreTrainedModel):
             config.num_labels - 1]`. If :obj:`config.num_labels == 1` a regression loss is computed (Mean-Square loss),
             If :obj:`config.num_labels > 1` a classification loss is computed (Cross-Entropy).
         """
-        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
+        return_dict = (
+            return_dict if return_dict is not None else self.config.use_return_dict
+        )
 
         outputs = self.roberta(
             input_ids,
@@ -180,7 +189,9 @@ class RobertaForRegression(RobertaPreTrainedModel):
             return_dict=return_dict,
         )
 
-        sequence_output = outputs.last_hidden_state # shape = (batch, seq_len, hidden_size)
+        sequence_output = (
+            outputs.last_hidden_state
+        )  # shape = (batch, seq_len, hidden_size)
         logits = self.regression(sequence_output)
 
         if labels is None:

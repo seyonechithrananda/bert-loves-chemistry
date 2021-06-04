@@ -17,32 +17,26 @@ python finetune.py \
 """
 
 import json
+import os
+import shutil
+from glob import glob
+
 import matplotlib.pyplot as plt
 import numpy as np
-import os
 import seaborn as sns
-import shutil
 import torch
 import wandb
-
 from absl import app, flags
-from glob import glob
+from chemberta.utils.molnet_dataloader import get_dataset_info, load_molnet_dataset
+from chemberta.utils.roberta_regression import (
+    RobertaForRegression,
+    RobertaForSequenceClassification,
+)
 from scipy.special import softmax
 from scipy.stats import pearsonr
 from sklearn.metrics import average_precision_score, mean_squared_error, roc_auc_score
-from transformers import (
-    RobertaTokenizerFast,
-    RobertaForSequenceClassification,
-    RobertaConfig,
-    Trainer,
-    TrainingArguments,
-)
-
-from chemberta.utils.molnet_dataloader import get_dataset_info, load_molnet_dataset
-from chemberta.utils.roberta_regression import RobertaForRegression
-
+from transformers import RobertaConfig, RobertaTokenizerFast, Trainer, TrainingArguments
 from transformers.trainer_callback import EarlyStoppingCallback
-
 
 FLAGS = flags.FLAGS
 
@@ -97,7 +91,6 @@ def main(argv):
 
 def finetune_single_dataset(dataset_name, run_dir):
     torch.manual_seed(FLAGS.seed)
-    
 
     tasks, (train_df, valid_df, test_df), transformers = load_molnet_dataset(
         dataset_name, split=FLAGS.split, df_format="chemprop"
@@ -131,6 +124,8 @@ def finetune_single_dataset(dataset_name, run_dir):
     dataset_type = get_dataset_info(dataset_name)["dataset_type"]
     if dataset_type == "classification":
         model_class = RobertaForSequenceClassification
+        config.num_labels = len(np.unique(train_labels))
+
     elif dataset_type == "regression":
         model_class = RobertaForRegression
         config.num_labels = 1
@@ -169,13 +164,17 @@ def finetune_single_dataset(dataset_name, run_dir):
             EarlyStoppingCallback(early_stopping_patience=FLAGS.early_stopping_patience)
         ],
     )
-    
+
     def custom_hp_space_optuna(trial):
         return {
             "learning_rate": trial.suggest_float("learning_rate", 1e-6, 1e-4, log=True),
-            "num_train_epochs": trial.suggest_int("num_train_epochs", 1, FLAGS.num_train_epochs_max),
+            "num_train_epochs": trial.suggest_int(
+                "num_train_epochs", 1, FLAGS.num_train_epochs_max
+            ),
             "seed": trial.suggest_int("seed", 1, 40),
-            "per_device_train_batch_size": trial.suggest_categorical("per_device_train_batch_size", [FLAGS.per_device_train_batch_size]),
+            "per_device_train_batch_size": trial.suggest_categorical(
+                "per_device_train_batch_size", [FLAGS.per_device_train_batch_size]
+            ),
         }
 
     best_trial = trainer.hyperparameter_search(
@@ -191,12 +190,12 @@ def finetune_single_dataset(dataset_name, run_dir):
     # Set parameters to the best ones from the hp search
     for n, v in best_trial.hyperparameters.items():
         setattr(trainer.args, n, v)
-        
+
     dir_valid = os.path.join(run_dir, "results", "valid")
     dir_test = os.path.join(run_dir, "results", "test")
     os.makedirs(dir_valid, exist_ok=True)
     os.makedirs(dir_test, exist_ok=True)
-        
+
     metrics_valid = {}
     metrics_test = {}
 
@@ -233,7 +232,9 @@ def finetune_single_dataset(dataset_name, run_dir):
         shutil.rmtree(d, ignore_errors=True)
 
 
-def eval_model(trainer, dataset, labels, dataset_name, dataset_type, output_dir, random_seed):
+def eval_model(
+    trainer, dataset, labels, dataset_name, dataset_type, output_dir, random_seed
+):
     predictions = trainer.predict(dataset)
     fig = plt.figure(dpi=144)
 
