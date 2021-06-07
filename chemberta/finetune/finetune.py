@@ -6,6 +6,11 @@ python finetune.py --datasets=bbbp --pretrained_model_name_or_path=DeepChem/Chem
 [regression]
 python finetune.py --datasets=delaney --pretrained_model_name_or_path=DeepChem/ChemBERTa-SM-015
 
+[csv]
+python finetune.py --datasets=/home/ubuntu/datasets/logd.csv,/home/ubuntu/datasets/logd.csv \
+                --dataset_types=regression,classification \
+                --model_dir=/home/ubuntu/chemberta_models/mlm/sm_015/
+
 [multiple]
 python finetune.py \
 --datasets=bace_classification,bace_regression,bbbp,clearance,clintox,delaney,lipo,tox21 \
@@ -97,6 +102,7 @@ flags.DEFINE_list(
 flags.DEFINE_string(
     name="split", default="scaffold", help="DeepChem data loader split_type."
 )
+flags.DEFINE_list(name="dataset_types", default=None, help="")
 
 # Tokenizer params
 flags.DEFINE_string(
@@ -112,7 +118,12 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"
 os.environ["WANDB_DISABLED"] = "true"
 
 
+def get_dataset_name(dataset_name_or_path):
+    return os.path.splitext(os.path.basename(dataset_name_or_path))[0]
+
+
 def main(argv):
+<<<<<<< bb38a8b592591ab24b44cc1bf51c8d574c9a29dd
     if FLAGS.pretrained_model_name_or_path is None:
         print(
             "`WARNING: pretrained_model_name_or_path` is None - training a model from scratch."
@@ -122,12 +133,31 @@ def main(argv):
 
     for dataset_name in FLAGS.datasets:
         run_dir = os.path.join(FLAGS.output_dir, FLAGS.run_name, dataset_name)
+=======
+    is_csv_dataset = FLAGS.datasets[0].endswith(".csv")
+
+    if is_csv_dataset:
+        assert (
+            len(FLAGS.dataset_types) > 0
+        ), "Please specify dataset types for csv datasets"
+    else:
+        dataset_type = None
+
+    for i in range(len(FLAGS.datasets)):
+        dataset_name in FLAGS.datasets[i]
+        if is_csv_dataset:
+            dataset_type = FLAGS.dataset_types[i]
+
+        run_dir = os.path.join(
+            FLAGS.output_dir, FLAGS.run_name, get_dataset_name(dataset_name)
+        )
+>>>>>>> started adding csv finetuning
 
         if os.path.exists(run_dir) and not FLAGS.overwrite_output_dir:
             print(f"Run dir already exists for dataset: {dataset_name}")
         else:
             print(f"Finetuning on {dataset_name}")
-            finetune_single_dataset(dataset_name, run_dir)
+            finetune_single_dataset(dataset_name, dataset_type, run_dir, is_csv_dataset)
 
 
 def prune_state_dict(model_dir):
@@ -151,17 +181,11 @@ def prune_state_dict(model_dir):
     return new_state_dict
 
 
-def finetune_single_dataset(dataset_name, run_dir):
-    torch.manual_seed(FLAGS.seed)
-
+def get_molnet_datasets(dataset_name, tokenizer):
     tasks, (train_df, valid_df, test_df), transformers = load_molnet_dataset(
         dataset_name, split=FLAGS.split, df_format="chemprop"
     )
     assert len(tasks) == 1
-
-    tokenizer = RobertaTokenizerFast.from_pretrained(
-        FLAGS.tokenizer_path, max_len=FLAGS.max_tokenizer_len, use_auth_token=True
-    )
 
     train_encodings = tokenizer(
         train_df["smiles"].tolist(), truncation=True, padding=True
@@ -181,6 +205,7 @@ def finetune_single_dataset(dataset_name, run_dir):
     valid_dataset = MolNetDataset(valid_encodings, valid_labels)
     test_dataset = MolNetDataset(test_encodings)
 
+<<<<<<< bb38a8b592591ab24b44cc1bf51c8d574c9a29dd
     if FLAGS.pretrained_model_name_or_path:
         config = RobertaConfig.from_pretrained(
             FLAGS.pretrained_model_name_or_path, use_auth_token=True
@@ -194,8 +219,45 @@ def finetune_single_dataset(dataset_name, run_dir):
             type_vocab_size=FLAGS.type_vocab_size,
             is_gpu=torch.cuda.is_available(),
         )
-
+=======
     dataset_type = get_dataset_info(dataset_name)["dataset_type"]
+
+    return train_dataset, valid_dataset, test_dataset, dataset_type
+
+
+def get_csv_datasets(dataset_name, tokenizer):
+    train_dataset = RegressionTextDataset(
+        tokenizer, os.path.join(dataset_name, "train.csv"), FLAGS.max_tokenizer_len
+    )
+    valid_dataset = RegressionTextDataset(
+        tokenizer, os.path.join(dataset_name, "valid.csv"), FLAGS.max_tokenizer_len
+    )
+    test_dataset = RegressionTextDataset(
+        tokenizer, os.path.join(dataset_name, "test.csv"), FLAGS.max_tokenizer_len
+    )
+
+    return train_dataset, valid_dataset, test_dataset
+
+
+def finetune_single_dataset(dataset_name, dataset_type, run_dir, is_csv_dataset):
+    torch.manual_seed(FLAGS.seed)
+
+    tokenizer = RobertaTokenizerFast.from_pretrained(
+        FLAGS.tokenizer_path, max_len=FLAGS.max_tokenizer_len, use_auth_token=True
+    )
+
+    if is_csv_dataset:
+        train_dataset, valid_dataset, test_dataset = get_csv_datasets(
+            dataset_name, tokenizer
+        )
+    else:
+        train_dataset, valid_dataset, test_dataset, dataset_type = get_molnet_datasets(
+            dataset_name, tokenizer
+        )
+
+    config = RobertaConfig.from_pretrained(FLAGS.model_dir, use_auth_token=True)
+>>>>>>> started adding csv finetuning
+
     if dataset_type == "classification":
         config.num_labels = len(np.unique(train_labels))
     elif dataset_type == "regression":
