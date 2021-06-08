@@ -118,6 +118,9 @@ def main(argv):
 def prune_state_dict(model_dir):
     """Remove problematic keys from state dictionary"""
     state_dict_path = os.path.join(model_dir, "pytorch_model.bin")
+    assert os.path.exists(
+        state_dict_path
+    ), f"No `pytorch_model.bin` file found in {model_dir}"
     loaded_state_dict = torch.load(state_dict_path)
     state_keys = loaded_state_dict.keys()
     keys_to_remove = [
