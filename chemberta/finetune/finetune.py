@@ -23,30 +23,30 @@ python finetune.py \
 python finetune.py --datasets=bbbp
 
 """
-
 import json
 import os
 import shutil
 from collections import OrderedDict
+from dataclasses import dataclass
 from glob import glob
+from typing import List
 
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
 import torch
 from absl import app, flags
-from chemberta.utils.molnet_dataloader import get_dataset_info, load_molnet_dataset
-from chemberta.utils.roberta_regression import RobertaForRegression
+from chemberta.utils.molnet_dataloader import (get_dataset_info,
+                                               load_molnet_dataset)
+from chemberta.utils.raw_text_dataset import RegressionTextDataset
+from chemberta.utils.roberta_regression import (
+    RobertaForRegression, RobertaForSequenceClassification)
 from scipy.special import softmax
 from scipy.stats import pearsonr
-from sklearn.metrics import average_precision_score, mean_squared_error, roc_auc_score
-from transformers import (
-    RobertaConfig,
-    RobertaForSequenceClassification,
-    RobertaTokenizerFast,
-    Trainer,
-    TrainingArguments,
-)
+from sklearn.metrics import (average_precision_score, mean_squared_error,
+                             roc_auc_score)
+from transformers import (RobertaConfig, RobertaForSequenceClassification,
+                          RobertaTokenizerFast, Trainer, TrainingArguments)
 from transformers.trainer_callback import EarlyStoppingCallback
 
 FLAGS = flags.FLAGS
@@ -123,7 +123,6 @@ def get_dataset_name(dataset_name_or_path):
 
 
 def main(argv):
-<<<<<<< bb38a8b592591ab24b44cc1bf51c8d574c9a29dd
     if FLAGS.pretrained_model_name_or_path is None:
         print(
             "`WARNING: pretrained_model_name_or_path` is None - training a model from scratch."
@@ -133,31 +132,34 @@ def main(argv):
 
     for dataset_name in FLAGS.datasets:
         run_dir = os.path.join(FLAGS.output_dir, FLAGS.run_name, dataset_name)
-=======
     is_csv_dataset = FLAGS.datasets[0].endswith(".csv")
 
+    # Check that CSV dataset has the proper flags
     if is_csv_dataset:
         assert (
             len(FLAGS.dataset_types) > 0
         ), "Please specify dataset types for csv datasets"
     else:
         dataset_type = None
+        for dataset_folder in FLAGS.datasets:
+            assert os.path.exists(os.path.join(dataset_folder, "train.csv"))
+            assert os.path.exists(os.path.join(dataset_folder, "valid.csv"))
+            assert os.path.exists(os.path.join(dataset_folder, "test.csv"))
 
     for i in range(len(FLAGS.datasets)):
-        dataset_name in FLAGS.datasets[i]
-        if is_csv_dataset:
-            dataset_type = FLAGS.dataset_types[i]
+        dataset_name_or_path = FLAGS.datasets[i]
+        dataset_name = get_dataset_name(dataset_name_or_path)
+        dataset_type = FLAGS.dataset_types[i] if is_csv_dataset else None
 
-        run_dir = os.path.join(
-            FLAGS.output_dir, FLAGS.run_name, get_dataset_name(dataset_name)
-        )
->>>>>>> started adding csv finetuning
+        run_dir = os.path.join(FLAGS.output_dir, FLAGS.run_name, dataset_name)
 
         if os.path.exists(run_dir) and not FLAGS.overwrite_output_dir:
             print(f"Run dir already exists for dataset: {dataset_name}")
         else:
             print(f"Finetuning on {dataset_name}")
-            finetune_single_dataset(dataset_name, dataset_type, run_dir, is_csv_dataset)
+            finetune_single_dataset(
+                dataset_name_or_path, dataset_type, run_dir, is_csv_dataset
+            )
 
 
 def prune_state_dict(model_dir):
@@ -205,7 +207,6 @@ def get_molnet_datasets(dataset_name, tokenizer):
     valid_dataset = MolNetDataset(valid_encodings, valid_labels)
     test_dataset = MolNetDataset(test_encodings)
 
-<<<<<<< bb38a8b592591ab24b44cc1bf51c8d574c9a29dd
     if FLAGS.pretrained_model_name_or_path:
         config = RobertaConfig.from_pretrained(
             FLAGS.pretrained_model_name_or_path, use_auth_token=True
@@ -219,24 +220,39 @@ def get_molnet_datasets(dataset_name, tokenizer):
             type_vocab_size=FLAGS.type_vocab_size,
             is_gpu=torch.cuda.is_available(),
         )
-=======
     dataset_type = get_dataset_info(dataset_name)["dataset_type"]
+    num_labels = len(np.unique(train_labels))
+    norm_mean = [np.mean(np.array(train_labels), axis=0)]
+    norm_std = [np.std(np.array(train_labels), axis=0)]
 
-    return train_dataset, valid_dataset, test_dataset, dataset_type
+    return (
+        train_dataset,
+        valid_dataset,
+        test_dataset,
+        num_labels,
+        norm_mean,
+        norm_std,
+        dataset_type,
+    )
 
 
-def get_csv_datasets(dataset_name, tokenizer):
+def get_csv_datasets(dataset_path, tokenizer):
     train_dataset = RegressionTextDataset(
-        tokenizer, os.path.join(dataset_name, "train.csv"), FLAGS.max_tokenizer_len
+        tokenizer, os.path.join(dataset_path, "train.csv"), FLAGS.max_tokenizer_len
     )
     valid_dataset = RegressionTextDataset(
-        tokenizer, os.path.join(dataset_name, "valid.csv"), FLAGS.max_tokenizer_len
+        tokenizer, os.path.join(dataset_path, "valid.csv"), FLAGS.max_tokenizer_len
     )
     test_dataset = RegressionTextDataset(
-        tokenizer, os.path.join(dataset_name, "test.csv"), FLAGS.max_tokenizer_len
+        tokenizer, os.path.join(dataset_path, "test.csv"), FLAGS.max_tokenizer_len
     )
 
-    return train_dataset, valid_dataset, test_dataset
+    num_labels = max(
+        train_dataset.num_labels, valid_dataset.num_labels, test_dataset.num_labels,
+    )
+
+    return train_dataset, valid_dataset, test_dataset, num_labels, norm_mean, norm_std
+
 
 
 def finetune_single_dataset(dataset_name, dataset_type, run_dir, is_csv_dataset):
@@ -247,19 +263,25 @@ def finetune_single_dataset(dataset_name, dataset_type, run_dir, is_csv_dataset)
     )
 
     if is_csv_dataset:
-        train_dataset, valid_dataset, test_dataset = get_csv_datasets(
+        train_dataset, valid_dataset, test_dataset, num_labels = get_csv_datasets(
             dataset_name, tokenizer
         )
     else:
-        train_dataset, valid_dataset, test_dataset, dataset_type = get_molnet_datasets(
-            dataset_name, tokenizer
-        )
+        (
+            train_dataset,
+            valid_dataset,
+            test_dataset,
+            num_labels,
+            dataset_type,
+        ) = get_molnet_datasets(dataset_name, tokenizer)
 
     config = RobertaConfig.from_pretrained(FLAGS.model_dir, use_auth_token=True)
 >>>>>>> started adding csv finetuning
 
     if dataset_type == "classification":
-        config.num_labels = len(np.unique(train_labels))
+        model_class = RobertaForSequenceClassification
+        config.num_labels = num_labels
+
     elif dataset_type == "regression":
         config.num_labels = 1
         config.norm_mean = [np.mean(np.array(train_labels), axis=0)]
@@ -275,9 +297,9 @@ def finetune_single_dataset(dataset_name, dataset_type, run_dir, is_csv_dataset)
 
         if FLAGS.pretrained_model_name_or_path:
             model = model_class.from_pretrained(
-                FLAGS.pretrained_model_name_or_path, 
-                config=config, 
-                state_dict=state_dict, 
+                FLAGS.pretrained_model_name_or_path,
+                config=config,
+                state_dict=state_dict,
                 use_auth_token=True
             )
             if FLAGS.freeze_base_model:
