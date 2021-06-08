@@ -233,7 +233,7 @@ class RobertaRegressionHead(nn.Module):
         x = features[:, 0, :]  # take <s> token (equiv. to [CLS])
         x = self.dropout(x)
         x = self.dense(x)
-        x = torch.tanh(x)
+        x = torch.relu(x)
         x = self.dropout(x)
         x = self.out_proj(x)
         return x
