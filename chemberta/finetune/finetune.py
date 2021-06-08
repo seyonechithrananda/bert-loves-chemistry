@@ -16,6 +16,7 @@ python finetune.py \
 
 """
 
+from collections import OrderedDict
 import json
 import os
 import shutil
@@ -114,6 +115,21 @@ def main(argv):
             finetune_single_dataset(dataset_name, run_dir)
 
 
+def prune_state_dict(model_dir):
+    """Remove problematic keys from state dictionary"""
+    state_dict_path = os.path.join(model_dir, "pytorch_model.bin")
+    loaded_state_dict = torch.load(state_dict_path)
+    state_keys = loaded_state_dict.keys()
+    keys_to_remove = [
+        k for k in state_keys if k.startswith("regression") or k.startswith("norm")
+    ]
+
+    new_state_dict = OrderedDict({**loaded_state_dict})
+    for k in keys_to_remove:
+        del new_state_dict[k]
+    return new_state_dict
+
+
 def finetune_single_dataset(dataset_name, run_dir):
     torch.manual_seed(FLAGS.seed)
 
@@ -154,13 +170,15 @@ def finetune_single_dataset(dataset_name, run_dir):
         config.norm_mean = [np.mean(np.array(train_labels), axis=0)]
         config.norm_std = [np.std(np.array(train_labels), axis=0)]
 
+    state_dict = prune_state_dict(FLAGS.model_dir)
+
     def model_init():
         if dataset_type == "classification":
             model_class = RobertaForSequenceClassification
         elif dataset_type == "regression":
             model_class = RobertaForRegression
         model = model_class.from_pretrained(
-            FLAGS.model_dir, config=config, use_auth_token=True
+            FLAGS.model_dir, config=config, state_dict=state_dict, use_auth_token=True
         )
 
         if FLAGS.freeze_base_model:
