@@ -27,6 +27,8 @@ import numpy as np
 import seaborn as sns
 import torch
 from absl import app, flags
+from chemberta.utils.molnet_dataloader import get_dataset_info, load_molnet_dataset
+from chemberta.utils.roberta_regression import RobertaForRegression
 from scipy.special import softmax
 from scipy.stats import pearsonr
 from sklearn.metrics import average_precision_score, mean_squared_error, roc_auc_score
@@ -38,9 +40,6 @@ from transformers import (
     TrainingArguments,
 )
 from transformers.trainer_callback import EarlyStoppingCallback
-
-from chemberta.utils.molnet_dataloader import get_dataset_info, load_molnet_dataset
-from chemberta.utils.roberta_regression import RobertaForRegression
 
 FLAGS = flags.FLAGS
 
@@ -108,7 +107,7 @@ def main(argv):
     for dataset_name in FLAGS.datasets:
         run_dir = os.path.join(FLAGS.output_dir, FLAGS.run_name, dataset_name)
 
-        if os.path.exists(run_dir):
+        if os.path.exists(run_dir) and not FLAGS.overwrite_output_dir:
             print(f"Run dir already exists for dataset: {dataset_name}")
         else:
             print(f"Finetuning on {dataset_name}")
