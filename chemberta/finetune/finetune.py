@@ -116,7 +116,7 @@ flags.DEFINE_string(
 flags.DEFINE_list(
     name="dataset_types",
     default=None,
-    help="List of dataset types (ex: classification,regression)",
+    help="List of dataset types (ex: classification,regression). Include 1 per dataset, not necessary for MoleculeNet datasets.",
 )
 
 # Tokenizer params
