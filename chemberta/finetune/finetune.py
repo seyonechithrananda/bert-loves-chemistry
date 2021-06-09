@@ -1,18 +1,21 @@
 """Script for finetuning and evaluating pre-trained ChemBERTa models on MoleculeNet tasks.
 
 [classification]
-python finetune.py --datasets=bbbp --model_dir=DeepChem/ChemBERTa-SM-015
+python finetune.py --datasets=bbbp --pretrained_model_name_or_path=DeepChem/ChemBERTa-SM-015
 
 [regression]
-python finetune.py --datasets=delaney --model_dir=DeepChem/ChemBERTa-SM-015
+python finetune.py --datasets=delaney --pretrained_model_name_or_path=DeepChem/ChemBERTa-SM-015
 
 [multiple]
 python finetune.py \
 --datasets=bace_classification,bace_regression,bbbp,clearance,clintox,delaney,lipo,tox21 \
---model_dir=DeepChem/ChemBERTa-SM-015 \
+--pretrained_model_name_or_path=DeepChem/ChemBERTa-SM-015 \
 --n_trials=20 \
 --output_dir=finetuning_experiments \
 --run_name=sm_015
+
+[from scratch (no pretraining)]
+python finetune.py --datasets=bbbp
 
 """
 
@@ -51,15 +54,22 @@ flags.DEFINE_integer(name="seed", default=0, help="Global random seed.")
 
 # Model params
 flags.DEFINE_string(
-    name="model_dir",
+    name="pretrained_model_name_or_path",
     default=None,
-    help="Path to local model_dir or model on HuggingFace Model Hub.",
+    help="Arg to HuggingFace model.from_pretrained(). Can be either a path to a local model or a model ID on HuggingFace Model Hub. If not given, trains a fresh model from scratch (non-pretrained).",
 )
 flags.DEFINE_boolean(
     name="freeze_base_model",
     default=False,
-    help="If true, freezes the parameters of the base model during training. Only the classification/regression head parameters will be trained.",
+    help="If True, freezes the parameters of the base model during training. Only the classification/regression head parameters will be trained. (Only used when `pretrained_model_name_or_path` is given.)",
 )
+
+# RobertaConfig params (only for non-pretrained models)
+flags.DEFINE_integer(name="vocab_size", default=600, help="")
+flags.DEFINE_integer(name="max_position_embeddings", default=515, help="")
+flags.DEFINE_integer(name="num_attention_heads", default=6, help="")
+flags.DEFINE_integer(name="num_hidden_layers", default=6, help="")
+flags.DEFINE_integer(name="type_vocab_size", default=1, help="")
 
 # Train params
 flags.DEFINE_integer(name="logging_steps", default=10, help="")
@@ -97,13 +107,19 @@ flags.DEFINE_string(
 flags.DEFINE_integer(name="max_tokenizer_len", default=512, help="")
 
 flags.mark_flag_as_required("datasets")
-flags.mark_flag_as_required("model_dir")
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 os.environ["WANDB_DISABLED"] = "true"
 
 
 def main(argv):
+    if FLAGS.pretrained_model_name_or_path is None:
+        print(
+            "`WARNING: pretrained_model_name_or_path` is None - training a model from scratch."
+        )
+    else:
+        print(f"Instantiating pretrained model from: {pretrained_model_name_or_path}")
+
     for dataset_name in FLAGS.datasets:
         run_dir = os.path.join(FLAGS.output_dir, FLAGS.run_name, dataset_name)
 
@@ -165,7 +181,19 @@ def finetune_single_dataset(dataset_name, run_dir):
     valid_dataset = MolNetDataset(valid_encodings, valid_labels)
     test_dataset = MolNetDataset(test_encodings)
 
-    config = RobertaConfig.from_pretrained(FLAGS.model_dir, use_auth_token=True)
+    if FLAGS.pretrained_model_name_or_path:
+        config = RobertaConfig.from_pretrained(
+            FLAGS.pretrained_model_name_or_path, use_auth_token=True
+        )
+    else:
+        config = RobertaConfig(
+            vocab_size=FLAGS.vocab_size,
+            max_position_embeddings=FLAGS.max_position_embeddings,
+            num_attention_heads=FLAGS.num_attention_heads,
+            num_hidden_layers=FLAGS.num_hidden_layers,
+            type_vocab_size=FLAGS.type_vocab_size,
+            is_gpu=torch.cuda.is_available(),
+        )
 
     dataset_type = get_dataset_info(dataset_name)["dataset_type"]
     if dataset_type == "classification":
@@ -182,13 +210,19 @@ def finetune_single_dataset(dataset_name, run_dir):
             model_class = RobertaForSequenceClassification
         elif dataset_type == "regression":
             model_class = RobertaForRegression
-        model = model_class.from_pretrained(
-            FLAGS.model_dir, config=config, state_dict=state_dict, use_auth_token=True
-        )
 
-        if FLAGS.freeze_base_model:
-            for name, param in model.base_model.named_parameters():
-                param.requires_grad = False
+        if FLAGS.pretrained_model_name_or_path:
+            model = model_class.from_pretrained(
+                FLAGS.pretrained_model_name_or_path, 
+                config=config, 
+                state_dict=state_dict, 
+                use_auth_token=True
+            )
+            if FLAGS.freeze_base_model:
+                for name, param in model.base_model.named_parameters():
+                    param.requires_grad = False
+        else:
+            model = model_class(config=config)
 
         return model
 
