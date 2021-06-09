@@ -113,7 +113,11 @@ flags.DEFINE_list(
 flags.DEFINE_string(
     name="split", default="scaffold", help="DeepChem data loader split_type."
 )
-flags.DEFINE_list(name="dataset_types", default=None, help="")
+flags.DEFINE_list(
+    name="dataset_types",
+    default=None,
+    help="List of dataset types (ex: classification,regression)",
+)
 
 # Tokenizer params
 flags.DEFINE_string(
