@@ -202,15 +202,7 @@ class FinetuneDatasetArgs:
     norm_std: List[float]
 
 
-def df_to_dataset(
-    df: pd.DataFrame, tokenizer, include_labels=True
-) -> torch.utils.data.Dataset:
-    encodings = tokenizer(df["smiles"].tolist(), truncation=True, padding=True)
-    labels = df.iloc[:, 1].values
-    return FinetuneDataset(encodings, labels, include_labels)
-
-
-def get_finetune_datasets(dataset_name, dataset_type, tokenizer, is_csv_dataset):
+def get_finetune_datasets(dataset_name, tokenizer, is_csv_dataset):
     if is_csv_dataset:
         train_df = pd.read_csv(os.path.join(dataset_name, "train.csv"))
         valid_df = pd.read_csv(os.path.join(dataset_name, "valid.csv"))
@@ -222,10 +214,10 @@ def get_finetune_datasets(dataset_name, dataset_type, tokenizer, is_csv_dataset)
         )
         assert len(tasks) == 1
 
-    train_dataset = df_to_dataset(train_df, tokenizer)
-    valid_dataset = df_to_dataset(valid_df, tokenizer)
-    valid_dataset_unlabeled = df_to_dataset(valid_df, tokenizer, include_labels=False)
-    test_dataset = df_to_dataset(test_df, tokenizer, include_labels=False)
+    train_dataset = FinetuneDataset(train_df, tokenizer)
+    valid_dataset = FinetuneDataset(valid_df, tokenizer)
+    valid_dataset_unlabeled = FinetuneDataset(valid_df, tokenizer, include_labels=False)
+    test_dataset = FinetuneDataset(test_df, tokenizer, include_labels=False)
 
     dataset_type = get_dataset_info(dataset_name)["dataset_type"]
     num_labels = len(np.unique(train_dataset.labels))
@@ -414,9 +406,10 @@ def eval_model(trainer, dataset, dataset_name, dataset_type, output_dir, random_
 
 
 class FinetuneDataset(torch.utils.data.Dataset):
-    def __init__(self, encodings, labels=None, include_labels=True):
-        self.encodings = encodings
-        self.labels = labels
+    def __init__(self, df, tokenizer, include_labels=True):
+
+        self.encodings = tokenizer(df["smiles"].tolist(), truncation=True, padding=True)
+        self.labels = df.iloc[:, 1].values
         self.include_labels = include_labels
 
     def __getitem__(self, idx):
