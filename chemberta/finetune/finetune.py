@@ -166,10 +166,6 @@ def main(argv):
             )
 
 
-def get_dataset_name(dataset_name_or_path):
-    return os.path.splitext(os.path.basename(dataset_name_or_path))[0]
-
-
 def prune_state_dict(model_dir):
     """Remove problematic keys from state dictionary"""
     if not os.path.exists(os.path.join(model_dir, "pytorch_model.bin")):
@@ -189,50 +185,6 @@ def prune_state_dict(model_dir):
     for k in keys_to_remove:
         del new_state_dict[k]
     return new_state_dict
-
-
-@dataclass
-class FinetuneDatasetArgs:
-    train_dataset: str
-    valid_dataset: torch.utils.data.Dataset
-    valid_dataset_unlabeled: torch.utils.data.Dataset
-    test_dataset: torch.utils.data.Dataset
-    num_labels: int
-    norm_mean: List[float]
-    norm_std: List[float]
-
-
-def get_finetune_datasets(dataset_name, tokenizer, is_csv_dataset):
-    if is_csv_dataset:
-        train_df = pd.read_csv(os.path.join(dataset_name, "train.csv"))
-        valid_df = pd.read_csv(os.path.join(dataset_name, "valid.csv"))
-        test_df = pd.read_csv(os.path.join(dataset_name, "test.csv"))
-
-    else:
-        tasks, (train_df, valid_df, test_df), _ = load_molnet_dataset(
-            dataset_name, split=FLAGS.split, df_format="chemprop"
-        )
-        assert len(tasks) == 1
-
-    train_dataset = FinetuneDataset(train_df, tokenizer)
-    valid_dataset = FinetuneDataset(valid_df, tokenizer)
-    valid_dataset_unlabeled = FinetuneDataset(valid_df, tokenizer, include_labels=False)
-    test_dataset = FinetuneDataset(test_df, tokenizer, include_labels=False)
-
-    dataset_type = get_dataset_info(dataset_name)["dataset_type"]
-    num_labels = len(np.unique(train_dataset.labels))
-    norm_mean = [np.mean(np.array(train_dataset.labels), axis=0)]
-    norm_std = [np.std(np.array(train_dataset.labels), axis=0)]
-
-    return FinetuneDatasetArgs(
-        train_dataset,
-        valid_dataset,
-        valid_dataset_unlabeled,
-        test_dataset,
-        num_labels,
-        norm_mean,
-        norm_std,
-    )
 
 
 def finetune_single_dataset(dataset_name, dataset_type, run_dir, is_csv_dataset):
@@ -403,6 +355,53 @@ def eval_model(trainer, dataset, dataset_name, dataset_type, output_dir, random_
     plt.savefig(os.path.join(output_dir, f"results_seed_{random_seed}.png"))
 
     return metrics
+
+
+def get_finetune_datasets(dataset_name, tokenizer, is_csv_dataset):
+    if is_csv_dataset:
+        train_df = pd.read_csv(os.path.join(dataset_name, "train.csv"))
+        valid_df = pd.read_csv(os.path.join(dataset_name, "valid.csv"))
+        test_df = pd.read_csv(os.path.join(dataset_name, "test.csv"))
+
+    else:
+        tasks, (train_df, valid_df, test_df), _ = load_molnet_dataset(
+            dataset_name, split=FLAGS.split, df_format="chemprop"
+        )
+        assert len(tasks) == 1
+
+    train_dataset = FinetuneDataset(train_df, tokenizer)
+    valid_dataset = FinetuneDataset(valid_df, tokenizer)
+    valid_dataset_unlabeled = FinetuneDataset(valid_df, tokenizer, include_labels=False)
+    test_dataset = FinetuneDataset(test_df, tokenizer, include_labels=False)
+
+    num_labels = len(np.unique(train_dataset.labels))
+    norm_mean = [np.mean(np.array(train_dataset.labels), axis=0)]
+    norm_std = [np.std(np.array(train_dataset.labels), axis=0)]
+
+    return FinetuneDatasets(
+        train_dataset,
+        valid_dataset,
+        valid_dataset_unlabeled,
+        test_dataset,
+        num_labels,
+        norm_mean,
+        norm_std,
+    )
+
+
+def get_dataset_name(dataset_name_or_path):
+    return os.path.splitext(os.path.basename(dataset_name_or_path))[0]
+
+
+@dataclass
+class FinetuneDatasets:
+    train_dataset: str
+    valid_dataset: torch.utils.data.Dataset
+    valid_dataset_unlabeled: torch.utils.data.Dataset
+    test_dataset: torch.utils.data.Dataset
+    num_labels: int
+    norm_mean: List[float]
+    norm_std: List[float]
 
 
 class FinetuneDataset(torch.utils.data.Dataset):
