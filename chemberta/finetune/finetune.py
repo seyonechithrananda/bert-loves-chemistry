@@ -7,8 +7,8 @@ python finetune.py --datasets=bbbp --pretrained_model_name_or_path=DeepChem/Chem
 python finetune.py --datasets=delaney --pretrained_model_name_or_path=DeepChem/ChemBERTa-SM-015
 
 [csv]
-python finetune.py --datasets=/home/ubuntu/datasets/logd/,/home/ubuntu/datasets/solubility/ \
-                --dataset_types=regression,classification \
+python finetune.py --datasets=$HOME/finetune_datasets/logd/ \
+                --dataset_types=regression \
                 --model_dir=DeepChem/ChemBERTa-SM-015
 
 [multiple]
@@ -18,6 +18,7 @@ python finetune.py \
 --n_trials=20 \
 --output_dir=finetuning_experiments \
 --run_name=sm_015
+--is_molnet=True
 
 [from scratch (no pretraining)]
 python finetune.py --datasets=bbbp
@@ -72,6 +73,11 @@ flags.DEFINE_boolean(
     name="freeze_base_model",
     default=False,
     help="If True, freezes the parameters of the base model during training. Only the classification/regression head parameters will be trained. (Only used when `pretrained_model_name_or_path` is given.)",
+)
+flags.DEFINE_boolean(
+    name="is_molnet",
+    default=False,
+    help="If true, assumes all dataset are MolNet datasets.",
 )
 
 # RobertaConfig params (only for non-pretrained models)
@@ -133,11 +139,12 @@ def main(argv):
 
     for dataset_name in FLAGS.datasets:
         run_dir = os.path.join(FLAGS.output_dir, FLAGS.run_name, dataset_name)
-    is_csv_dataset = FLAGS.datasets[0].endswith(".csv")
-    is_csv_dataset = os.path.isdir(FLAGS.datasets[0])
+
+    is_molnet = FLAGS.is_molnet
 
     # Check that CSV dataset has the proper flags
-    if is_csv_dataset:
+    if not is_molnet:
+        print("Assuming each dataset is a folder containing CSVs...")
         assert (
             len(FLAGS.dataset_types) > 0
         ), "Please specify dataset types for csv datasets"
@@ -150,9 +157,9 @@ def main(argv):
         dataset_name_or_path = FLAGS.datasets[i]
         dataset_name = get_dataset_name(dataset_name_or_path)
         dataset_type = (
-            FLAGS.dataset_types[i]
-            if is_csv_dataset
-            else get_dataset_info(dataset_name)["dataset_type"]
+            get_dataset_info(dataset_name)["dataset_type"]
+            if is_molnet
+            else FLAGS.dataset_types[i]
         )
 
         run_dir = os.path.join(FLAGS.output_dir, FLAGS.run_name, dataset_name)
@@ -162,7 +169,7 @@ def main(argv):
         else:
             print(f"Finetuning on {dataset_name}")
             finetune_single_dataset(
-                dataset_name_or_path, dataset_type, run_dir, is_csv_dataset
+                dataset_name_or_path, dataset_type, run_dir, is_molnet
             )
 
 
@@ -187,14 +194,14 @@ def prune_state_dict(model_dir):
     return new_state_dict
 
 
-def finetune_single_dataset(dataset_name, dataset_type, run_dir, is_csv_dataset):
+def finetune_single_dataset(dataset_name, dataset_type, run_dir, is_molnet):
     torch.manual_seed(FLAGS.seed)
 
     tokenizer = RobertaTokenizerFast.from_pretrained(
         FLAGS.tokenizer_path, max_len=FLAGS.max_tokenizer_len, use_auth_token=True
     )
 
-    finetune_datasets = get_finetune_datasets(dataset_name, tokenizer, is_csv_dataset)
+    finetune_datasets = get_finetune_datasets(dataset_name, tokenizer, is_molnet)
 
     if FLAGS.pretrained_model_name_or_path:
         config = RobertaConfig.from_pretrained(
@@ -357,17 +364,16 @@ def eval_model(trainer, dataset, dataset_name, dataset_type, output_dir, random_
     return metrics
 
 
-def get_finetune_datasets(dataset_name, tokenizer, is_csv_dataset):
-    if is_csv_dataset:
-        train_df = pd.read_csv(os.path.join(dataset_name, "train.csv"))
-        valid_df = pd.read_csv(os.path.join(dataset_name, "valid.csv"))
-        test_df = pd.read_csv(os.path.join(dataset_name, "test.csv"))
-
-    else:
+def get_finetune_datasets(dataset_name, tokenizer, is_molnet):
+    if is_molnet:
         tasks, (train_df, valid_df, test_df), _ = load_molnet_dataset(
             dataset_name, split=FLAGS.split, df_format="chemprop"
         )
         assert len(tasks) == 1
+    else:
+        train_df = pd.read_csv(os.path.join(dataset_name, "train.csv"))
+        valid_df = pd.read_csv(os.path.join(dataset_name, "valid.csv"))
+        test_df = pd.read_csv(os.path.join(dataset_name, "test.csv"))
 
     train_dataset = FinetuneDataset(train_df, tokenizer)
     valid_dataset = FinetuneDataset(valid_df, tokenizer)
