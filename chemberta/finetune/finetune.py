@@ -38,7 +38,6 @@ import seaborn as sns
 import torch
 from absl import app, flags
 from chemberta.utils.molnet_dataloader import get_dataset_info, load_molnet_dataset
-from chemberta.utils.raw_text_dataset import RegressionDataset
 from chemberta.utils.roberta_regression import (
     RobertaForRegression,
     RobertaForSequenceClassification,
