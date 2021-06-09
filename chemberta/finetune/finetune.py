@@ -9,7 +9,7 @@ python finetune.py --datasets=delaney --pretrained_model_name_or_path=DeepChem/C
 [csv]
 python finetune.py --datasets=$HOME/finetune_datasets/logd/ \
                 --dataset_types=regression \
-                --model_dir=DeepChem/ChemBERTa-SM-015
+                --pretrained_model_name_or_path=DeepChem/ChemBERTa-SM-015 \
                 --is_molnet=False
 
 [multiple]
@@ -138,9 +138,6 @@ def main(argv):
         print(
             f"Instantiating pretrained model from: {FLAGS.pretrained_model_name_or_path}"
         )
-
-    for dataset_name in FLAGS.datasets:
-        run_dir = os.path.join(FLAGS.output_dir, FLAGS.run_name, dataset_name)
 
     is_molnet = FLAGS.is_molnet
 
