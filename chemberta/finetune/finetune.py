@@ -33,20 +33,26 @@ from typing import List
 
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import seaborn as sns
 import torch
 from absl import app, flags
-from chemberta.utils.molnet_dataloader import (get_dataset_info,
-                                               load_molnet_dataset)
-from chemberta.utils.raw_text_dataset import RegressionTextDataset
+from chemberta.utils.molnet_dataloader import get_dataset_info, load_molnet_dataset
+from chemberta.utils.raw_text_dataset import RegressionDataset
 from chemberta.utils.roberta_regression import (
-    RobertaForRegression, RobertaForSequenceClassification)
+    RobertaForRegression,
+    RobertaForSequenceClassification,
+)
 from scipy.special import softmax
 from scipy.stats import pearsonr
-from sklearn.metrics import (average_precision_score, mean_squared_error,
-                             roc_auc_score)
-from transformers import (RobertaConfig, RobertaForSequenceClassification,
-                          RobertaTokenizerFast, Trainer, TrainingArguments)
+from sklearn.metrics import average_precision_score, mean_squared_error, roc_auc_score
+from transformers import (
+    RobertaConfig,
+    RobertaForSequenceClassification,
+    RobertaTokenizerFast,
+    Trainer,
+    TrainingArguments,
+)
 from transformers.trainer_callback import EarlyStoppingCallback
 
 FLAGS = flags.FLAGS
@@ -118,10 +124,6 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"
 os.environ["WANDB_DISABLED"] = "true"
 
 
-def get_dataset_name(dataset_name_or_path):
-    return os.path.splitext(os.path.basename(dataset_name_or_path))[0]
-
-
 def main(argv):
     if FLAGS.pretrained_model_name_or_path is None:
         print(
@@ -133,14 +135,13 @@ def main(argv):
     for dataset_name in FLAGS.datasets:
         run_dir = os.path.join(FLAGS.output_dir, FLAGS.run_name, dataset_name)
     is_csv_dataset = FLAGS.datasets[0].endswith(".csv")
+    is_csv_dataset = os.path.isdir(FLAGS.datasets[0])
 
     # Check that CSV dataset has the proper flags
     if is_csv_dataset:
         assert (
             len(FLAGS.dataset_types) > 0
         ), "Please specify dataset types for csv datasets"
-    else:
-        dataset_type = None
         for dataset_folder in FLAGS.datasets:
             assert os.path.exists(os.path.join(dataset_folder, "train.csv"))
             assert os.path.exists(os.path.join(dataset_folder, "valid.csv"))
@@ -149,7 +150,11 @@ def main(argv):
     for i in range(len(FLAGS.datasets)):
         dataset_name_or_path = FLAGS.datasets[i]
         dataset_name = get_dataset_name(dataset_name_or_path)
-        dataset_type = FLAGS.dataset_types[i] if is_csv_dataset else None
+        dataset_type = (
+            FLAGS.dataset_types[i]
+            if is_csv_dataset
+            else get_dataset_info(dataset_name)["dataset_type"]
+        )
 
         run_dir = os.path.join(FLAGS.output_dir, FLAGS.run_name, dataset_name)
 
@@ -160,6 +165,10 @@ def main(argv):
             finetune_single_dataset(
                 dataset_name_or_path, dataset_type, run_dir, is_csv_dataset
             )
+
+
+def get_dataset_name(dataset_name_or_path):
+    return os.path.splitext(os.path.basename(dataset_name_or_path))[0]
 
 
 def prune_state_dict(model_dir):
@@ -183,29 +192,66 @@ def prune_state_dict(model_dir):
     return new_state_dict
 
 
-def get_molnet_datasets(dataset_name, tokenizer):
-    tasks, (train_df, valid_df, test_df), transformers = load_molnet_dataset(
-        dataset_name, split=FLAGS.split, df_format="chemprop"
-    )
-    assert len(tasks) == 1
+@dataclass
+class FinetuneDatasetArgs:
+    train_dataset: str
+    valid_dataset: torch.utils.data.Dataset
+    valid_dataset_unlabeled: torch.utils.data.Dataset
+    test_dataset: torch.utils.data.Dataset
+    num_labels: int
+    norm_mean: List[float]
+    norm_std: List[float]
 
-    train_encodings = tokenizer(
-        train_df["smiles"].tolist(), truncation=True, padding=True
-    )
-    valid_encodings = tokenizer(
-        valid_df["smiles"].tolist(), truncation=True, padding=True
-    )
-    test_encodings = tokenizer(
-        test_df["smiles"].tolist(), truncation=True, padding=True
+
+def df_to_dataset(
+    df: pd.DataFrame, tokenizer, include_labels=True
+) -> torch.utils.data.Dataset:
+    encodings = tokenizer(df["smiles"].tolist(), truncation=True, padding=True)
+    labels = df.iloc[:, 1].values
+    return FinetuneDataset(encodings, labels, include_labels)
+
+
+def get_finetune_datasets(dataset_name, dataset_type, tokenizer, is_csv_dataset):
+    if is_csv_dataset:
+        train_df = pd.read_csv(os.path.join(dataset_name, "train.csv"))
+        valid_df = pd.read_csv(os.path.join(dataset_name, "valid.csv"))
+        test_df = pd.read_csv(os.path.join(dataset_name, "test.csv"))
+
+    else:
+        tasks, (train_df, valid_df, test_df), _ = load_molnet_dataset(
+            dataset_name, split=FLAGS.split, df_format="chemprop"
+        )
+        assert len(tasks) == 1
+
+    train_dataset = df_to_dataset(train_df, tokenizer)
+    valid_dataset = df_to_dataset(valid_df, tokenizer)
+    valid_dataset_unlabeled = df_to_dataset(valid_df, tokenizer, include_labels=False)
+    test_dataset = df_to_dataset(test_df, tokenizer, include_labels=False)
+
+    dataset_type = get_dataset_info(dataset_name)["dataset_type"]
+    num_labels = len(np.unique(train_dataset.labels))
+    norm_mean = [np.mean(np.array(train_dataset.labels), axis=0)]
+    norm_std = [np.std(np.array(train_dataset.labels), axis=0)]
+
+    return FinetuneDatasetArgs(
+        train_dataset,
+        valid_dataset,
+        valid_dataset_unlabeled,
+        test_dataset,
+        num_labels,
+        norm_mean,
+        norm_std,
     )
 
-    train_labels = train_df.iloc[:, 1].values
-    valid_labels = valid_df.iloc[:, 1].values
-    test_labels = test_df.iloc[:, 1].values
 
-    train_dataset = MolNetDataset(train_encodings, train_labels)
-    valid_dataset = MolNetDataset(valid_encodings, valid_labels)
-    test_dataset = MolNetDataset(test_encodings)
+def finetune_single_dataset(dataset_name, dataset_type, run_dir, is_csv_dataset):
+    torch.manual_seed(FLAGS.seed)
+
+    tokenizer = RobertaTokenizerFast.from_pretrained(
+        FLAGS.tokenizer_path, max_len=FLAGS.max_tokenizer_len, use_auth_token=True
+    )
+
+    finetune_datasets = get_finetune_datasets(dataset_name, tokenizer, is_csv_dataset)
 
     if FLAGS.pretrained_model_name_or_path:
         config = RobertaConfig.from_pretrained(
@@ -220,72 +266,16 @@ def get_molnet_datasets(dataset_name, tokenizer):
             type_vocab_size=FLAGS.type_vocab_size,
             is_gpu=torch.cuda.is_available(),
         )
-    dataset_type = get_dataset_info(dataset_name)["dataset_type"]
-    num_labels = len(np.unique(train_labels))
-    norm_mean = [np.mean(np.array(train_labels), axis=0)]
-    norm_std = [np.std(np.array(train_labels), axis=0)]
-
-    return (
-        train_dataset,
-        valid_dataset,
-        test_dataset,
-        num_labels,
-        norm_mean,
-        norm_std,
-        dataset_type,
-    )
-
-
-def get_csv_datasets(dataset_path, tokenizer):
-    train_dataset = RegressionTextDataset(
-        tokenizer, os.path.join(dataset_path, "train.csv"), FLAGS.max_tokenizer_len
-    )
-    valid_dataset = RegressionTextDataset(
-        tokenizer, os.path.join(dataset_path, "valid.csv"), FLAGS.max_tokenizer_len
-    )
-    test_dataset = RegressionTextDataset(
-        tokenizer, os.path.join(dataset_path, "test.csv"), FLAGS.max_tokenizer_len
-    )
-
-    num_labels = max(
-        train_dataset.num_labels, valid_dataset.num_labels, test_dataset.num_labels,
-    )
-
-    return train_dataset, valid_dataset, test_dataset, num_labels, norm_mean, norm_std
-
-
-
-def finetune_single_dataset(dataset_name, dataset_type, run_dir, is_csv_dataset):
-    torch.manual_seed(FLAGS.seed)
-
-    tokenizer = RobertaTokenizerFast.from_pretrained(
-        FLAGS.tokenizer_path, max_len=FLAGS.max_tokenizer_len, use_auth_token=True
-    )
-
-    if is_csv_dataset:
-        train_dataset, valid_dataset, test_dataset, num_labels = get_csv_datasets(
-            dataset_name, tokenizer
-        )
-    else:
-        (
-            train_dataset,
-            valid_dataset,
-            test_dataset,
-            num_labels,
-            dataset_type,
-        ) = get_molnet_datasets(dataset_name, tokenizer)
-
-    config = RobertaConfig.from_pretrained(FLAGS.model_dir, use_auth_token=True)
->>>>>>> started adding csv finetuning
 
     if dataset_type == "classification":
         model_class = RobertaForSequenceClassification
-        config.num_labels = num_labels
+        config.num_labels = finetune_datasets.num_labels
 
     elif dataset_type == "regression":
+        model_class = RobertaForRegression
         config.num_labels = 1
-        config.norm_mean = [np.mean(np.array(train_labels), axis=0)]
-        config.norm_std = [np.std(np.array(train_labels), axis=0)]
+        config.norm_mean = finetune_datasets.norm_mean
+        config.norm_std = finetune_datasets.norm_std
 
     state_dict = prune_state_dict(FLAGS.model_dir)
 
@@ -300,7 +290,7 @@ def finetune_single_dataset(dataset_name, dataset_type, run_dir, is_csv_dataset)
                 FLAGS.pretrained_model_name_or_path,
                 config=config,
                 state_dict=state_dict,
-                use_auth_token=True
+                use_auth_token=True,
             )
             if FLAGS.freeze_base_model:
                 for name, param in model.base_model.named_parameters():
@@ -323,8 +313,8 @@ def finetune_single_dataset(dataset_name, dataset_type, run_dir, is_csv_dataset)
     trainer = Trainer(
         model_init=model_init,
         args=training_args,
-        train_dataset=train_dataset,
-        eval_dataset=valid_dataset,
+        train_dataset=finetune_datasets.train_dataset,
+        eval_dataset=finetune_datasets.valid_dataset,
         callbacks=[
             EarlyStoppingCallback(early_stopping_patience=FLAGS.early_stopping_patience)
         ],
@@ -349,9 +339,6 @@ def finetune_single_dataset(dataset_name, dataset_type, run_dir, is_csv_dataset)
         n_trials=FLAGS.n_trials,
     )
 
-    # Remake valid_dataset without labels to force unnormalization in regression model
-    valid_dataset = MolNetDataset(valid_encodings)
-
     # Set parameters to the best ones from the hp search
     for n, v in best_trial.hyperparameters.items():
         setattr(trainer.args, n, v)
@@ -370,8 +357,7 @@ def finetune_single_dataset(dataset_name, dataset_type, run_dir, is_csv_dataset)
         trainer.train()
         metrics_valid[f"seed_{random_seed}"] = eval_model(
             trainer,
-            valid_dataset,
-            valid_labels,
+            finetune_datasets.valid_dataset_unlabeled,
             dataset_name,
             dataset_type,
             dir_valid,
@@ -379,8 +365,7 @@ def finetune_single_dataset(dataset_name, dataset_type, run_dir, is_csv_dataset)
         )
         metrics_test[f"seed_{random_seed}"] = eval_model(
             trainer,
-            test_dataset,
-            test_labels,
+            finetune_datasets.test_dataset,
             dataset_name,
             dataset_type,
             dir_test,
@@ -397,9 +382,8 @@ def finetune_single_dataset(dataset_name, dataset_type, run_dir, is_csv_dataset)
         shutil.rmtree(d, ignore_errors=True)
 
 
-def eval_model(
-    trainer, dataset, labels, dataset_name, dataset_type, output_dir, random_seed
-):
+def eval_model(trainer, dataset, dataset_name, dataset_type, output_dir, random_seed):
+    labels = dataset.labels
     predictions = trainer.predict(dataset)
     fig = plt.figure(dpi=144)
 
@@ -430,14 +414,15 @@ def eval_model(
     return metrics
 
 
-class MolNetDataset(torch.utils.data.Dataset):
-    def __init__(self, encodings, labels=None):
+class FinetuneDataset(torch.utils.data.Dataset):
+    def __init__(self, encodings, labels=None, include_labels=True):
         self.encodings = encodings
         self.labels = labels
+        self.include_labels = include_labels
 
     def __getitem__(self, idx):
         item = {key: torch.tensor(val[idx]) for key, val in self.encodings.items()}
-        if self.labels is not None:
+        if self.include_labels and self.labels is not None:
             item["labels"] = torch.tensor(self.labels[idx])
         return item
 
