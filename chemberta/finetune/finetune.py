@@ -10,6 +10,7 @@ python finetune.py --datasets=delaney --pretrained_model_name_or_path=DeepChem/C
 python finetune.py --datasets=$HOME/finetune_datasets/logd/ \
                 --dataset_types=regression \
                 --model_dir=DeepChem/ChemBERTa-SM-015
+                --is_molnet=False
 
 [multiple]
 python finetune.py \
@@ -18,7 +19,6 @@ python finetune.py \
 --n_trials=20 \
 --output_dir=finetuning_experiments \
 --run_name=sm_015
---is_molnet=True
 
 [from scratch (no pretraining)]
 python finetune.py --datasets=bbbp
@@ -76,7 +76,7 @@ flags.DEFINE_boolean(
 )
 flags.DEFINE_boolean(
     name="is_molnet",
-    default=False,
+    default=True,
     help="If true, assumes all dataset are MolNet datasets.",
 )
 
@@ -229,7 +229,7 @@ def finetune_single_dataset(dataset_name, dataset_type, run_dir, is_molnet):
         config.norm_mean = finetune_datasets.norm_mean
         config.norm_std = finetune_datasets.norm_std
 
-    state_dict = prune_state_dict(FLAGS.model_dir)
+    state_dict = prune_state_dict(FLAGS.pretrained_model_name_or_path)
 
     def model_init():
         if dataset_type == "classification":
