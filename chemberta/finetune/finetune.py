@@ -6,6 +6,12 @@ python finetune.py --datasets=bbbp --pretrained_model_name_or_path=DeepChem/Chem
 [regression]
 python finetune.py --datasets=delaney --pretrained_model_name_or_path=DeepChem/ChemBERTa-SM-015
 
+[csv]
+python finetune.py --datasets=$HOME/finetune_datasets/logd/ \
+                --dataset_types=regression \
+                --pretrained_model_name_or_path=DeepChem/ChemBERTa-SM-015 \
+                --is_molnet=False
+
 [multiple]
 python finetune.py \
 --datasets=bace_classification,bace_regression,bbbp,clearance,clintox,delaney,lipo,tox21 \
@@ -18,20 +24,25 @@ python finetune.py \
 python finetune.py --datasets=bbbp
 
 """
-
 import json
 import os
 import shutil
 from collections import OrderedDict
+from dataclasses import dataclass
 from glob import glob
+from typing import List
 
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import seaborn as sns
 import torch
 from absl import app, flags
 from chemberta.utils.molnet_dataloader import get_dataset_info, load_molnet_dataset
-from chemberta.utils.roberta_regression import RobertaForRegression
+from chemberta.utils.roberta_regression import (
+    RobertaForRegression,
+    RobertaForSequenceClassification,
+)
 from scipy.special import softmax
 from scipy.stats import pearsonr
 from sklearn.metrics import average_precision_score, mean_squared_error, roc_auc_score
@@ -62,6 +73,11 @@ flags.DEFINE_boolean(
     name="freeze_base_model",
     default=False,
     help="If True, freezes the parameters of the base model during training. Only the classification/regression head parameters will be trained. (Only used when `pretrained_model_name_or_path` is given.)",
+)
+flags.DEFINE_boolean(
+    name="is_molnet",
+    default=True,
+    help="If true, assumes all dataset are MolNet datasets.",
 )
 
 # RobertaConfig params (only for non-pretrained models)
@@ -97,6 +113,11 @@ flags.DEFINE_list(
 flags.DEFINE_string(
     name="split", default="scaffold", help="DeepChem data loader split_type."
 )
+flags.DEFINE_list(
+    name="dataset_types",
+    default=None,
+    help="List of dataset types (ex: classification,regression). Include 1 per dataset, not necessary for MoleculeNet datasets.",
+)
 
 # Tokenizer params
 flags.DEFINE_string(
@@ -118,16 +139,41 @@ def main(argv):
             "`WARNING: pretrained_model_name_or_path` is None - training a model from scratch."
         )
     else:
-        print(f"Instantiating pretrained model from: {pretrained_model_name_or_path}")
+        print(
+            f"Instantiating pretrained model from: {FLAGS.pretrained_model_name_or_path}"
+        )
 
-    for dataset_name in FLAGS.datasets:
+    is_molnet = FLAGS.is_molnet
+
+    # Check that CSV dataset has the proper flags
+    if not is_molnet:
+        print("Assuming each dataset is a folder containing CSVs...")
+        assert (
+            len(FLAGS.dataset_types) > 0
+        ), "Please specify dataset types for csv datasets"
+        for dataset_folder in FLAGS.datasets:
+            assert os.path.exists(os.path.join(dataset_folder, "train.csv"))
+            assert os.path.exists(os.path.join(dataset_folder, "valid.csv"))
+            assert os.path.exists(os.path.join(dataset_folder, "test.csv"))
+
+    for i in range(len(FLAGS.datasets)):
+        dataset_name_or_path = FLAGS.datasets[i]
+        dataset_name = get_dataset_name(dataset_name_or_path)
+        dataset_type = (
+            get_dataset_info(dataset_name)["dataset_type"]
+            if is_molnet
+            else FLAGS.dataset_types[i]
+        )
+
         run_dir = os.path.join(FLAGS.output_dir, FLAGS.run_name, dataset_name)
 
         if os.path.exists(run_dir) and not FLAGS.overwrite_output_dir:
             print(f"Run dir already exists for dataset: {dataset_name}")
         else:
             print(f"Finetuning on {dataset_name}")
-            finetune_single_dataset(dataset_name, run_dir)
+            finetune_single_dataset(
+                dataset_name_or_path, dataset_type, run_dir, is_molnet
+            )
 
 
 def prune_state_dict(model_dir):
@@ -151,35 +197,14 @@ def prune_state_dict(model_dir):
     return new_state_dict
 
 
-def finetune_single_dataset(dataset_name, run_dir):
+def finetune_single_dataset(dataset_name, dataset_type, run_dir, is_molnet):
     torch.manual_seed(FLAGS.seed)
-
-    tasks, (train_df, valid_df, test_df), transformers = load_molnet_dataset(
-        dataset_name, split=FLAGS.split, df_format="chemprop"
-    )
-    assert len(tasks) == 1
 
     tokenizer = RobertaTokenizerFast.from_pretrained(
         FLAGS.tokenizer_path, max_len=FLAGS.max_tokenizer_len, use_auth_token=True
     )
 
-    train_encodings = tokenizer(
-        train_df["smiles"].tolist(), truncation=True, padding=True
-    )
-    valid_encodings = tokenizer(
-        valid_df["smiles"].tolist(), truncation=True, padding=True
-    )
-    test_encodings = tokenizer(
-        test_df["smiles"].tolist(), truncation=True, padding=True
-    )
-
-    train_labels = train_df.iloc[:, 1].values
-    valid_labels = valid_df.iloc[:, 1].values
-    test_labels = test_df.iloc[:, 1].values
-
-    train_dataset = MolNetDataset(train_encodings, train_labels)
-    valid_dataset = MolNetDataset(valid_encodings, valid_labels)
-    test_dataset = MolNetDataset(test_encodings)
+    finetune_datasets = get_finetune_datasets(dataset_name, tokenizer, is_molnet)
 
     if FLAGS.pretrained_model_name_or_path:
         config = RobertaConfig.from_pretrained(
@@ -195,15 +220,17 @@ def finetune_single_dataset(dataset_name, run_dir):
             is_gpu=torch.cuda.is_available(),
         )
 
-    dataset_type = get_dataset_info(dataset_name)["dataset_type"]
     if dataset_type == "classification":
-        config.num_labels = len(np.unique(train_labels))
-    elif dataset_type == "regression":
-        config.num_labels = 1
-        config.norm_mean = [np.mean(np.array(train_labels), axis=0)]
-        config.norm_std = [np.std(np.array(train_labels), axis=0)]
+        model_class = RobertaForSequenceClassification
+        config.num_labels = finetune_datasets.num_labels
 
-    state_dict = prune_state_dict(FLAGS.model_dir)
+    elif dataset_type == "regression":
+        model_class = RobertaForRegression
+        config.num_labels = 1
+        config.norm_mean = finetune_datasets.norm_mean
+        config.norm_std = finetune_datasets.norm_std
+
+    state_dict = prune_state_dict(FLAGS.pretrained_model_name_or_path)
 
     def model_init():
         if dataset_type == "classification":
@@ -213,10 +240,10 @@ def finetune_single_dataset(dataset_name, run_dir):
 
         if FLAGS.pretrained_model_name_or_path:
             model = model_class.from_pretrained(
-                FLAGS.pretrained_model_name_or_path, 
-                config=config, 
-                state_dict=state_dict, 
-                use_auth_token=True
+                FLAGS.pretrained_model_name_or_path,
+                config=config,
+                state_dict=state_dict,
+                use_auth_token=True,
             )
             if FLAGS.freeze_base_model:
                 for name, param in model.base_model.named_parameters():
@@ -239,8 +266,8 @@ def finetune_single_dataset(dataset_name, run_dir):
     trainer = Trainer(
         model_init=model_init,
         args=training_args,
-        train_dataset=train_dataset,
-        eval_dataset=valid_dataset,
+        train_dataset=finetune_datasets.train_dataset,
+        eval_dataset=finetune_datasets.valid_dataset,
         callbacks=[
             EarlyStoppingCallback(early_stopping_patience=FLAGS.early_stopping_patience)
         ],
@@ -265,9 +292,6 @@ def finetune_single_dataset(dataset_name, run_dir):
         n_trials=FLAGS.n_trials,
     )
 
-    # Remake valid_dataset without labels to force unnormalization in regression model
-    valid_dataset = MolNetDataset(valid_encodings)
-
     # Set parameters to the best ones from the hp search
     for n, v in best_trial.hyperparameters.items():
         setattr(trainer.args, n, v)
@@ -286,8 +310,7 @@ def finetune_single_dataset(dataset_name, run_dir):
         trainer.train()
         metrics_valid[f"seed_{random_seed}"] = eval_model(
             trainer,
-            valid_dataset,
-            valid_labels,
+            finetune_datasets.valid_dataset_unlabeled,
             dataset_name,
             dataset_type,
             dir_valid,
@@ -295,8 +318,7 @@ def finetune_single_dataset(dataset_name, run_dir):
         )
         metrics_test[f"seed_{random_seed}"] = eval_model(
             trainer,
-            test_dataset,
-            test_labels,
+            finetune_datasets.test_dataset,
             dataset_name,
             dataset_type,
             dir_test,
@@ -313,9 +335,8 @@ def finetune_single_dataset(dataset_name, run_dir):
         shutil.rmtree(d, ignore_errors=True)
 
 
-def eval_model(
-    trainer, dataset, labels, dataset_name, dataset_type, output_dir, random_seed
-):
+def eval_model(trainer, dataset, dataset_name, dataset_type, output_dir, random_seed):
+    labels = dataset.labels
     predictions = trainer.predict(dataset)
     fig = plt.figure(dpi=144)
 
@@ -346,14 +367,62 @@ def eval_model(
     return metrics
 
 
-class MolNetDataset(torch.utils.data.Dataset):
-    def __init__(self, encodings, labels=None):
-        self.encodings = encodings
-        self.labels = labels
+def get_finetune_datasets(dataset_name, tokenizer, is_molnet):
+    if is_molnet:
+        tasks, (train_df, valid_df, test_df), _ = load_molnet_dataset(
+            dataset_name, split=FLAGS.split, df_format="chemprop"
+        )
+        assert len(tasks) == 1
+    else:
+        train_df = pd.read_csv(os.path.join(dataset_name, "train.csv"))
+        valid_df = pd.read_csv(os.path.join(dataset_name, "valid.csv"))
+        test_df = pd.read_csv(os.path.join(dataset_name, "test.csv"))
+
+    train_dataset = FinetuneDataset(train_df, tokenizer)
+    valid_dataset = FinetuneDataset(valid_df, tokenizer)
+    valid_dataset_unlabeled = FinetuneDataset(valid_df, tokenizer, include_labels=False)
+    test_dataset = FinetuneDataset(test_df, tokenizer, include_labels=False)
+
+    num_labels = len(np.unique(train_dataset.labels))
+    norm_mean = [np.mean(np.array(train_dataset.labels), axis=0)]
+    norm_std = [np.std(np.array(train_dataset.labels), axis=0)]
+
+    return FinetuneDatasets(
+        train_dataset,
+        valid_dataset,
+        valid_dataset_unlabeled,
+        test_dataset,
+        num_labels,
+        norm_mean,
+        norm_std,
+    )
+
+
+def get_dataset_name(dataset_name_or_path):
+    return os.path.splitext(os.path.basename(dataset_name_or_path))[0]
+
+
+@dataclass
+class FinetuneDatasets:
+    train_dataset: str
+    valid_dataset: torch.utils.data.Dataset
+    valid_dataset_unlabeled: torch.utils.data.Dataset
+    test_dataset: torch.utils.data.Dataset
+    num_labels: int
+    norm_mean: List[float]
+    norm_std: List[float]
+
+
+class FinetuneDataset(torch.utils.data.Dataset):
+    def __init__(self, df, tokenizer, include_labels=True):
+
+        self.encodings = tokenizer(df["smiles"].tolist(), truncation=True, padding=True)
+        self.labels = df.iloc[:, 1].values
+        self.include_labels = include_labels
 
     def __getitem__(self, idx):
         item = {key: torch.tensor(val[idx]) for key, val in self.encodings.items()}
-        if self.labels is not None:
+        if self.include_labels and self.labels is not None:
             item["labels"] = torch.tensor(self.labels[idx])
         return item
 
