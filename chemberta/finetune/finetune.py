@@ -135,7 +135,9 @@ def main(argv):
             "`WARNING: pretrained_model_name_or_path` is None - training a model from scratch."
         )
     else:
-        print(f"Instantiating pretrained model from: {pretrained_model_name_or_path}")
+        print(
+            f"Instantiating pretrained model from: {FLAGS.pretrained_model_name_or_path}"
+        )
 
     for dataset_name in FLAGS.datasets:
         run_dir = os.path.join(FLAGS.output_dir, FLAGS.run_name, dataset_name)
