@@ -7,7 +7,7 @@ python finetune.py --datasets=bbbp --pretrained_model_name_or_path=DeepChem/Chem
 python finetune.py --datasets=delaney --pretrained_model_name_or_path=DeepChem/ChemBERTa-SM-015
 
 [csv]
-python finetune.py --datasets=/home/ubuntu/datasets/logd.csv,/home/ubuntu/datasets/logd.csv \
+python finetune.py --datasets=/home/ubuntu/datasets/logd/,/home/ubuntu/datasets/solubility/ \
                 --dataset_types=regression,classification \
                 --model_dir=DeepChem/ChemBERTa-SM-015
 
