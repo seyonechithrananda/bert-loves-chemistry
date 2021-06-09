@@ -9,7 +9,7 @@ python finetune.py --datasets=delaney --pretrained_model_name_or_path=DeepChem/C
 [csv]
 python finetune.py --datasets=/home/ubuntu/datasets/logd.csv,/home/ubuntu/datasets/logd.csv \
                 --dataset_types=regression,classification \
-                --model_dir=/home/ubuntu/chemberta_models/mlm/sm_015/
+                --model_dir=DeepChem/ChemBERTa-SM-015
 
 [multiple]
 python finetune.py \
