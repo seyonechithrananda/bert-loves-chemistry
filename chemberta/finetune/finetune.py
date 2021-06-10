@@ -178,7 +178,7 @@ def main(argv):
 
 def prune_state_dict(model_dir):
     """Remove problematic keys from state dictionary"""
-    if not os.path.exists(os.path.join(model_dir, "pytorch_model.bin")):
+    if not (model_dir and os.path.exists(os.path.join(model_dir, "pytorch_model.bin"))):
         return None
 
     state_dict_path = os.path.join(model_dir, "pytorch_model.bin")
