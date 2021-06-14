@@ -51,8 +51,7 @@ from sklearn.metrics import (
     mean_squared_error,
     roc_auc_score,
 )
-from transformers import RobertaConfig  # RobertaForSequenceClassification,
-from transformers import RobertaTokenizerFast, Trainer, TrainingArguments
+from transformers import RobertaConfig, RobertaTokenizerFast, Trainer, TrainingArguments
 from transformers.trainer_callback import EarlyStoppingCallback
 
 FLAGS = flags.FLAGS
