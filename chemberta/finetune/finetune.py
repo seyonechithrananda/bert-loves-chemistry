@@ -45,14 +45,14 @@ from chemberta.utils.roberta_regression import (
 )
 from scipy.special import softmax
 from scipy.stats import pearsonr
-from sklearn.metrics import average_precision_score, mean_squared_error, roc_auc_score
-from transformers import (
-    RobertaConfig,
-    RobertaForSequenceClassification,
-    RobertaTokenizerFast,
-    Trainer,
-    TrainingArguments,
+from sklearn.metrics import (
+    average_precision_score,
+    matthews_corrcoef,
+    mean_squared_error,
+    roc_auc_score,
 )
+from transformers import RobertaConfig  # RobertaForSequenceClassification,
+from transformers import RobertaTokenizerFast, Trainer, TrainingArguments
 from transformers.trainer_callback import EarlyStoppingCallback
 
 FLAGS = flags.FLAGS
@@ -341,14 +341,19 @@ def eval_model(trainer, dataset, dataset_name, dataset_type, output_dir, random_
     fig = plt.figure(dpi=144)
 
     if dataset_type == "classification":
-        y_pred = softmax(predictions.predictions, axis=1)[:, 1]
-        metrics = {
-            "roc_auc_score": roc_auc_score(y_true=labels, y_score=y_pred),
-            "average_precision_score": average_precision_score(
-                y_true=labels, y_score=y_pred
-            ),
-        }
-        sns.histplot(x=y_pred, hue=labels)
+        if len(np.unique(labels)) <= 2:
+            y_pred = softmax(predictions.predictions, axis=1)[:, 1]
+            metrics = {
+                "roc_auc_score": roc_auc_score(y_true=labels, y_score=y_pred),
+                "average_precision_score": average_precision_score(
+                    y_true=labels, y_score=y_pred
+                ),
+            }
+            sns.histplot(x=y_pred, hue=labels)
+        else:
+            y_pred = np.argmax(predictions.predictions, axis=-1)
+            metrics = {"mcc": matthews_corrcoef(labels, y_pred)}
+
     elif dataset_type == "regression":
         y_pred = predictions.predictions.flatten()
         metrics = {
