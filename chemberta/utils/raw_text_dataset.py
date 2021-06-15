@@ -7,7 +7,10 @@ import torch
 from nlp import load_dataset
 from rdkit import Chem
 from rdkit.ML.Descriptors.MoleculeDescriptors import MolecularDescriptorCalculator
+
 from torch.utils.data import Dataset
+
+# from datasets import Dataset
 
 
 class RawTextDataset(Dataset):
@@ -111,6 +114,7 @@ class RegressionDataset(Dataset):
 
 class RegressionTextDataset(Dataset):
     def __init__(self, tokenizer, file_path: str, block_size: int):
+        super().__init__()
         print("Initializing dataset...")
         self.tokenizer = tokenizer
         self.file_path = file_path

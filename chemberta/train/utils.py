@@ -20,6 +20,10 @@ from transformers import (
     TrainingArguments,
 )
 
+from torch.utils.data import DataLoader
+
+import pdb
+
 
 def create_trainer(model_type, config, training_args, dataset_args, callbacks: List):
     print(dataset_args.tokenizer_path)
@@ -76,16 +80,35 @@ def create_trainer(model_type, config, training_args, dataset_args, callbacks: L
     else:
         raise ValueError(model_type)
 
-    train_dataset, eval_dataset = get_train_test_split(dataset, dataset_args.frac_train)
+    # train_dataset, eval_dataset = get_train_test_split(dataset, dataset_args.frac_train)
 
-    return Trainer(
-        model=model,
-        args=training_args,
-        data_collator=data_collator,
-        train_dataset=train_dataset,
-        eval_dataset=eval_dataset,
-        callbacks=callbacks,
+    # run through all the data
+    print(dataset)
+    print(dataset[100])
+    loader = DataLoader(
+        dataset,
+        batch_size=1000,
+        shuffle=False,
+        collate_fn=data_collator,
+        # pin_memory=True,
+        num_workers=24,
     )
+    try:
+        for batch_idx, sample in enumerate(loader):
+            print(batch_idx)
+    except:
+        pdb.set_trace()
+
+    exit()
+
+    # return Trainer(
+    #     model=model,
+    #     args=training_args,
+    #     data_collator=data_collator,
+    #     train_dataset=train_dataset,
+    #     eval_dataset=eval_dataset,
+    #     callbacks=callbacks,
+    # )
 
 
 @dataclass
