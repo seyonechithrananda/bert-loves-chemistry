@@ -81,32 +81,8 @@ class RegressionDataset(Dataset):
     def __len__(self):
         return self.len
 
-    def _clean_property(self, x):
-        if x is None or math.isnan(x) or math.isinf(x):
-            return 0
-        return x
-
-    def preprocess(self, feature_dict):
-        batch_encoding = self.tokenizer(
-            feature_dict[self.smiles_column],
-            add_special_tokens=True,
-            truncation=True,
-            padding="max_length",
-            max_length=self.block_size,
-        )
-        batch_encoding["label"] = [
-            self._clean_property(feature_dict[label_column])
-            for label_column in self.label_columns
-        ]
-
-        batch_encoding = {k: torch.tensor(v) for k, v in batch_encoding.items()}
-
-        return batch_encoding
-
     def __getitem__(self, i):
-        feature_dict = self.dataset[i]
-        example = self.preprocess(feature_dict)
-        return example
+        return preprocess(self.dataset[i]["text"], self.tokenizer, self.block_size)
 
 
 class RegressionTextDataset(Dataset):
@@ -117,11 +93,10 @@ class RegressionTextDataset(Dataset):
         self.block_size = block_size
 
         print("Inferring CSV structure from first line...")
-        data_files = get_data_files(file_path)
-        self.dataset = load_dataset("text", data_files=data_files)["train"]
-        example_line = self.dataset[0]
-        self.num_labels = len(example_line["text"].split(",")) - 1
-
+        self.dataset = load_dataset(
+            "text", data_files=get_data_files(file_path)["train"]
+        )
+        self.num_labels = len(self.dataset[0]["text"].split(",")) - 1
         print("Loaded Dataset")
         self.len = len(self.dataset)
         print("Number of lines: " + str(self.len))
@@ -130,31 +105,31 @@ class RegressionTextDataset(Dataset):
     def __len__(self):
         return self.len
 
-    def _clean_property(self, x):
+    def __getitem__(self, i):
+        return preprocess(self.dataset[i]["text"], self.tokenizer, self.block_size)
+
+
+def preprocess(line, tokenizer, block_size):
+    def _clean_property(x):
         if x == "" or "inf" in x:
             return 0
         return float(x)
 
-    def preprocess(self, line):
-        line = line.split(",")
-        smiles = line[0]
-        labels = line[1:]
+    line = line.split(",")
+    smiles = line[0]
+    labels = line[1:]
 
-        batch_encoding = self.tokenizer(
-            smiles,
-            add_special_tokens=True,
-            truncation=True,
-            padding="max_length",
-            max_length=self.block_size,
-        )
-        batch_encoding["label"] = [self._clean_property(x) for x in labels]
-        batch_encoding = {k: torch.tensor(v) for k, v in batch_encoding.items()}
+    batch_encoding = tokenizer(
+        smiles,
+        add_special_tokens=True,
+        truncation=True,
+        padding="max_length",
+        max_length=block_size,
+    )
+    batch_encoding["label"] = [_clean_property(x) for x in labels]
+    batch_encoding = {k: torch.tensor(v) for k, v in batch_encoding.items()}
 
-        return batch_encoding
-
-    def __getitem__(self, i):
-        example = self.preprocess(self.dataset[i]["text"])
-        return example
+    return batch_encoding
 
 
 class LazyRegressionDataset(Dataset):

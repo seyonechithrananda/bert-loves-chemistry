@@ -1,4 +1,4 @@
-name: chemberta_env
+name: chemberta_upgraded_env
 channels:
   - pytorch
   - rdkit
@@ -16,7 +16,7 @@ dependencies:
   - pip
   - pre_commit
   - python=3.8
-  - pytorch=1.4.0
+  - pytorch=1.9.0
   - rdkit
   - regex
   - s3fs
