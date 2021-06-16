@@ -135,7 +135,7 @@ class RegressionTextDataset(Dataset):
 def preprocess(line, tokenizer, block_size):
     def _clean_property(x):
         if x == "" or "inf" in x:
-            return 0
+            return 0.0
         return float(x)
 
     line = line.split(",")
