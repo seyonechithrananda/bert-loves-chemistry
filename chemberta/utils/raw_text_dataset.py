@@ -59,6 +59,29 @@ class RawTextDataset(Dataset):
         return example
 
 
+class RegressionTextIterable(torch.utils.data.IterableDataset):
+    def __init__(self, tokenizer, file_path: str, block_size: int):
+        print("Initializing dataset...")
+        self.tokenizer = tokenizer
+        self.file_path = file_path
+        self.block_size = block_size
+
+        print("Inferring CSV structure from first line...")
+        self.dataset = load_dataset("text", data_files=get_data_files(file_path))[
+            "train"
+        ]
+        self.num_labels = len(self.dataset[0]["text"].split(",")) - 1
+
+        print("Loaded Dataset")
+        self.len = len(self.dataset)
+        print("Number of lines: " + str(self.len))
+        print("Block size: " + str(self.block_size))
+
+    def __iter__(self):
+        for example in self.dataset:
+            yield preprocess(example["text"], self.tokenizer, self.block_size)
+
+
 class RegressionDataset(Dataset):
     def __init__(self, tokenizer, file_path: str, block_size: int):
         print("init dataset")
@@ -93,9 +116,9 @@ class RegressionTextDataset(Dataset):
         self.block_size = block_size
 
         print("Inferring CSV structure from first line...")
-        self.dataset = load_dataset(
-            "text", data_files=get_data_files(file_path)["train"]
-        )
+        self.dataset = load_dataset("text", data_files=get_data_files(file_path))[
+            "train"
+        ]
         self.num_labels = len(self.dataset[0]["text"].split(",")) - 1
         print("Loaded Dataset")
         self.len = len(self.dataset)
@@ -127,7 +150,9 @@ def preprocess(line, tokenizer, block_size):
         max_length=block_size,
     )
     batch_encoding["label"] = [_clean_property(x) for x in labels]
-    batch_encoding = {k: torch.tensor(v) for k, v in batch_encoding.items()}
+    batch_encoding = {
+        k: torch.tensor(v, dtype=torch.float) for k, v in batch_encoding.items()
+    }
 
     return batch_encoding
 
