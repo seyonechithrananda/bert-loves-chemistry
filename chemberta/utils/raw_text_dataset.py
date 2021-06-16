@@ -30,6 +30,7 @@ class RawTextDataset(Dataset):
     """
 
     def __init__(self, tokenizer, file_path: str, block_size: int):
+        super().__init__()
         self.tokenizer = tokenizer
         self.file_path = file_path
         self.block_size = block_size
@@ -61,6 +62,7 @@ class RawTextDataset(Dataset):
 
 class RegressionTextIterable(torch.utils.data.IterableDataset):
     def __init__(self, tokenizer, file_path: str, block_size: int):
+        super().__init__()
         print("Initializing dataset...")
         self.tokenizer = tokenizer
         self.file_path = file_path
@@ -84,6 +86,7 @@ class RegressionTextIterable(torch.utils.data.IterableDataset):
 
 class RegressionDataset(Dataset):
     def __init__(self, tokenizer, file_path: str, block_size: int):
+        super().__init__()
         print("init dataset")
         self.tokenizer = tokenizer
         self.file_path = file_path
@@ -110,6 +113,7 @@ class RegressionDataset(Dataset):
 
 class RegressionTextDataset(Dataset):
     def __init__(self, tokenizer, file_path: str, block_size: int):
+        super().__init__()
         print("Initializing dataset...")
         self.tokenizer = tokenizer
         self.file_path = file_path
@@ -161,6 +165,7 @@ class LazyRegressionDataset(Dataset):
     """Computes RDKit properties on-the-fly."""
 
     def __init__(self, tokenizer, file_path: str, block_size: int):
+        super().__init__()
         print("init dataset")
         self.tokenizer = tokenizer
         self.file_path = file_path
