@@ -1,4 +1,4 @@
-name: chemberta_upgraded_env
+name: chemberta_env
 channels:
   - pytorch
   - rdkit
