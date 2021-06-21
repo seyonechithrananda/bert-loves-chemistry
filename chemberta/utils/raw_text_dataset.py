@@ -1,8 +1,6 @@
-import math
 import os
 
 import numpy as np
-import pandas as pd
 import torch
 from nlp import load_dataset
 from rdkit import Chem
@@ -154,9 +152,7 @@ def preprocess(line, tokenizer, block_size):
         max_length=block_size,
     )
     batch_encoding["label"] = [_clean_property(x) for x in labels]
-    batch_encoding = {
-        k: torch.tensor(v, dtype=torch.float) for k, v in batch_encoding.items()
-    }
+    batch_encoding = {k: torch.tensor(v) for k, v in batch_encoding.items()}
 
     return batch_encoding
 
