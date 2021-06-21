@@ -21,7 +21,7 @@ def multitask_data_collator(features: List[InputDataClass]) -> Dict[str, torch.T
     batch = {}
 
     if "label" in first and first["label"] is not None:
-        batch["labels"] = torch.stack([f["label"] for f in features], dtype=torch.float)
+        batch["labels"] = torch.stack([f["label"] for f in features])
 
     # Handling of all other possible keys.
     # Again, we will use the first element to figure out which key/values are not None for this model.
