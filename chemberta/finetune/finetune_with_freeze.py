@@ -245,12 +245,12 @@ def finetune_single_dataset(dataset_name, dataset_type, run_dir, is_molnet):
 
         return model
 
-    # train for 3 epochs to get the final layer warmed-up
+    # train for 2 epochs to get the final layer warmed-up
     warmup_dir = os.path.join(run_dir, "warmup/")
     warmup_model_dir = os.path.join(warmup_dir, "warmed_up")
     warmup_training_args = TrainingArguments(
         evaluation_strategy="epoch",
-        num_train_epochs=3,
+        num_train_epochs=2,
         output_dir=warmup_dir,
         overwrite_output_dir=FLAGS.overwrite_output_dir,
         per_device_eval_batch_size=FLAGS.per_device_eval_batch_size,
@@ -332,7 +332,7 @@ def finetune_single_dataset(dataset_name, dataset_type, run_dir, is_molnet):
 
     # Set parameters to the best ones from the hp search
     for n, v in best_trial.hyperparameters.items():
-        setattr(trainer.args, n, v)
+        setattr(hp_trainer.args, n, v)
 
     dir_valid = os.path.join(run_dir, "results", "valid")
     dir_test = os.path.join(run_dir, "results", "test")
@@ -344,10 +344,10 @@ def finetune_single_dataset(dataset_name, dataset_type, run_dir, is_molnet):
 
     # Run with several seeds so we can see std
     for random_seed in range(FLAGS.n_seeds):
-        setattr(trainer.args, "seed", random_seed)
-        trainer.train()
+        setattr(hp_trainer.args, "seed", random_seed)
+        hp_trainer.train()
         metrics_valid[f"seed_{random_seed}"] = eval_model(
-            trainer,
+            hp_trainer,
             finetune_datasets.valid_dataset_unlabeled,
             dataset_name,
             dataset_type,
@@ -355,7 +355,7 @@ def finetune_single_dataset(dataset_name, dataset_type, run_dir, is_molnet):
             random_seed,
         )
         metrics_test[f"seed_{random_seed}"] = eval_model(
-            trainer,
+            hp_trainer,
             finetune_datasets.test_dataset,
             dataset_name,
             dataset_type,
