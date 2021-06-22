@@ -5,7 +5,7 @@ channels:
   - conda-forge
 dependencies:
   - absl-py
-  - cudatoolkit=10.1.243
+  - cudatoolkit
   - ipython
   - jupyterlab
   - matplotlib
@@ -16,7 +16,7 @@ dependencies:
   - pip
   - pre_commit
   - python=3.8
-  - pytorch=1.4.0
+  - pytorch
   - rdkit
   - regex
   - s3fs
@@ -32,3 +32,4 @@ dependencies:
     - deepchem>=2.4.0rc1.dev20200916050731
     - simpletransformers
     - tensorflow>=2.0
+  
