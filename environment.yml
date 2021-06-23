@@ -1,6 +1,7 @@
-name: chemberta_env
+name: new_chemberta_env
 channels:
   - pytorch
+  - huggingface
   - rdkit
   - conda-forge
 dependencies:

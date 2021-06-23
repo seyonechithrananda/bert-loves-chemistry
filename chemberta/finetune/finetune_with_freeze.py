@@ -84,7 +84,7 @@ flags.DEFINE_integer(name="type_vocab_size", default=1, help="")
 
 # Train params
 flags.DEFINE_integer(name="logging_steps", default=10, help="")
-flags.DEFINE_integer(name="early_stopping_patience", default=3, help="")
+flags.DEFINE_integer(name="early_stopping_patience", default=5, help="")
 flags.DEFINE_integer(name="num_train_epochs_max", default=10, help="")
 flags.DEFINE_integer(name="per_device_train_batch_size", default=64, help="")
 flags.DEFINE_integer(name="per_device_eval_batch_size", default=64, help="")
@@ -194,6 +194,7 @@ def prune_state_dict(model_dir):
 
 def finetune_single_dataset(dataset_name, dataset_type, run_dir, is_molnet):
     torch.manual_seed(FLAGS.seed)
+    os.environ["WANDB_DISABLED"] = "true"
 
     tokenizer = RobertaTokenizerFast.from_pretrained(
         FLAGS.tokenizer_path, max_len=FLAGS.max_tokenizer_len, use_auth_token=True
@@ -258,7 +259,6 @@ def finetune_single_dataset(dataset_name, dataset_type, run_dir, is_molnet):
         load_best_model_at_end=True,
         report_to=None,
     )
-
     warmup_trainer = Trainer(
         model_init=warmup_model_init,
         args=warmup_training_args,
@@ -277,22 +277,22 @@ def finetune_single_dataset(dataset_name, dataset_type, run_dir, is_molnet):
         elif dataset_type == "regression":
             model_class = RobertaForRegression
 
+        # make sure to leave out the `state_dict` argument
+        # since we actually want to use the saved final layer weights
         model = model_class.from_pretrained(
             warmup_model_dir,
             config=config,
-            state_dict=state_dict,
             use_auth_token=True,
         )
         # make sure everything is trainable
         for name, param in model.base_model.named_parameters():
             param.requires_grad = True
-        else:
-            model = model_class(config=config)
 
         return model
 
     hp_training_args = TrainingArguments(
         evaluation_strategy="epoch",
+        num_train_epochs=100,
         output_dir=run_dir,
         overwrite_output_dir=FLAGS.overwrite_output_dir,
         per_device_eval_batch_size=FLAGS.per_device_eval_batch_size,
@@ -314,9 +314,9 @@ def finetune_single_dataset(dataset_name, dataset_type, run_dir, is_molnet):
     def custom_hp_space_optuna(trial):
         return {
             "learning_rate": trial.suggest_float("learning_rate", 1e-7, 1e-4, log=True),
-            "num_train_epochs": trial.suggest_int(
-                "num_train_epochs", 1, FLAGS.num_train_epochs_max
-            ),
+            # "num_train_epochs": trial.suggest_int(
+            #     "num_train_epochs", 1, FLAGS.num_train_epochs_max
+            # ),
             "seed": trial.suggest_int("seed", 1, 40),
             "per_device_train_batch_size": trial.suggest_categorical(
                 "per_device_train_batch_size", [FLAGS.per_device_train_batch_size]
@@ -343,8 +343,10 @@ def finetune_single_dataset(dataset_name, dataset_type, run_dir, is_molnet):
     metrics_test = {}
 
     # Run with several seeds so we can see std
+    os.environ["WANDB_DISABLED"] = "false"
     for random_seed in range(FLAGS.n_seeds):
         setattr(hp_trainer.args, "seed", random_seed)
+        setattr(hp_trainer.args, "run_name", f"run_{random_seed}")
         hp_trainer.train()
         metrics_valid[f"seed_{random_seed}"] = eval_model(
             hp_trainer,
@@ -368,9 +370,12 @@ def finetune_single_dataset(dataset_name, dataset_type, run_dir, is_molnet):
     with open(os.path.join(dir_test, "metrics.json"), "w") as f:
         json.dump(metrics_test, f)
 
-    # Delete checkpoints from hyperparameter search since they use a lot of disk
+    # Delete checkpoints/runs from hyperparameter search since they use a lot of disk
     for d in glob(os.path.join(run_dir, "run-*")):
         shutil.rmtree(d, ignore_errors=True)
+    for d in glob(os.path.join(run_dir, "checkpoint-*")):
+        shutil.rmtree(d, ignore_errors=True)
+    shutil.rmtree(warmup_dir, ignore_errors=True)
 
 
 def eval_model(trainer, dataset, dataset_name, dataset_type, output_dir, random_seed):
