@@ -7,6 +7,7 @@ channels:
 dependencies:
   - absl-py
   - cudatoolkit
+  - huggingface::datasets
   - ipython
   - jupyterlab
   - matplotlib
@@ -26,10 +27,9 @@ dependencies:
   - seaborn
   - torchvision
   - tqdm
-  - transformers
+  - huggingface::transformers
   - wandb
   - pip:
-    - datasets
     - deepchem>=2.4.0rc1.dev20200916050731
     - simpletransformers
     - tensorflow>=2.0
