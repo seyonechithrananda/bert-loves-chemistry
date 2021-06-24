@@ -85,7 +85,7 @@ flags.DEFINE_integer(name="type_vocab_size", default=1, help="")
 # Train params
 flags.DEFINE_integer(name="logging_steps", default=10, help="")
 flags.DEFINE_integer(name="early_stopping_patience", default=5, help="")
-flags.DEFINE_integer(name="num_train_epochs_max", default=10, help="")
+flags.DEFINE_integer(name="num_train_epochs_max", default=100, help="")
 flags.DEFINE_integer(name="per_device_train_batch_size", default=64, help="")
 flags.DEFINE_integer(name="per_device_eval_batch_size", default=64, help="")
 flags.DEFINE_integer(
@@ -292,7 +292,7 @@ def finetune_single_dataset(dataset_name, dataset_type, run_dir, is_molnet):
 
     hp_training_args = TrainingArguments(
         evaluation_strategy="epoch",
-        num_train_epochs=100,
+        num_train_epochs=FLAGS.num_train_epochs_max,
         output_dir=run_dir,
         overwrite_output_dir=FLAGS.overwrite_output_dir,
         per_device_eval_batch_size=FLAGS.per_device_eval_batch_size,
@@ -314,9 +314,6 @@ def finetune_single_dataset(dataset_name, dataset_type, run_dir, is_molnet):
     def custom_hp_space_optuna(trial):
         return {
             "learning_rate": trial.suggest_float("learning_rate", 1e-7, 1e-4, log=True),
-            # "num_train_epochs": trial.suggest_int(
-            #     "num_train_epochs", 1, FLAGS.num_train_epochs_max
-            # ),
             "seed": trial.suggest_int("seed", 1, 40),
             "per_device_train_batch_size": trial.suggest_categorical(
                 "per_device_train_batch_size", [FLAGS.per_device_train_batch_size]

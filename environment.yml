@@ -1,4 +1,4 @@
-name: new_chemberta_env
+name: chemberta_env
 channels:
   - pytorch
   - huggingface
@@ -16,7 +16,7 @@ dependencies:
   - pandas
   - pip
   - pre_commit
-  - python=3.8
+  - python
   - pytorch
   - rdkit
   - regex
