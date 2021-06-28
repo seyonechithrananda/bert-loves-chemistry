@@ -1,34 +1,32 @@
 name: chemberta_env
 channels:
-  - conda-forge
-  - nvidia
   - pytorch
-  - anaconda
+  - rdkit
+  - conda-forge
 dependencies:
   - absl-py
-  - cudatoolkit
+  - cudatoolkit=10.1.243
+  - ipython
   - jupyterlab
   - matplotlib
   - numpy
+  - nlp
   - pandas
   - pip
-  - pre_commit
-  - pytorch
-  - python>=3.6
-  - rdkit::rdkit
+  - python=3.8
+  - pytorch=1.4.0
+  - rdkit
   - regex
   - s3fs
-  - scikit-learn>=0.22
-  - scipy>=1.3.1
+  - scikit-learn
+  - scipy
   - seaborn
   - torchvision
   - tqdm
+  - transformers
+  - wandb
   - pip:
     - datasets
     - deepchem>=2.4.0rc1.dev20200916050731
-    - optuna
     - simpletransformers
     - tensorflow>=2.0
-    - transformers
-    - wandb
-
