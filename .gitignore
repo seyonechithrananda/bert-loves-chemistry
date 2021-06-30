@@ -148,3 +148,6 @@ events.out.tfevents*
 
 # wandb stuff
 wandb/
+
+# anything involving experiments
+*experiments
