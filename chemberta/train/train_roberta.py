@@ -20,31 +20,29 @@ Usage [regression]:
 
 import os
 
-import pandas as pd
 import torch
-import transformers
 from absl import app, flags
-from chemberta.train.utils import DatasetArguments, create_trainer
 from transformers import RobertaConfig, TrainingArguments
 from transformers.trainer_callback import EarlyStoppingCallback
+
+from chemberta.train.utils import DatasetArguments, create_trainer
 
 FLAGS = flags.FLAGS
 
 # Model params
 flags.DEFINE_enum(
-    name="model_type", default="mlm", enum_values=["mlm", "regression"], help=""
+    name="model_type",
+    default="mlm",
+    enum_values=["mlm", "regression", "regression_lazy"],
+    help="",
 )
 
-# RobertaConfig params
-flags.DEFINE_integer(name="vocab_size", default=600, help="")
-flags.DEFINE_integer(name="max_position_embeddings", default=515, help="")
-flags.DEFINE_integer(name="num_attention_heads", default=6, help="")
-flags.DEFINE_integer(name="num_hidden_layers", default=6, help="")
-flags.DEFINE_integer(name="hidden_size", defulat=768, help="")
-flags.DEFINE_integer(name="type_vocab_size", default=1, help="")
-flags.DEFINE_float(name="hidden_dropout_prob", default=0.1, help="")
-flags.DEFINE_float(name="attention_probs_dropout_prob", default=0.1, help="")
-
+# # RobertaConfig params
+# flags.DEFINE_integer(name="vocab_size", default=600, help="")
+# flags.DEFINE_integer(name="max_position_embeddings", default=515, help="")
+# flags.DEFINE_integer(name="num_attention_heads", default=6, help="")
+# flags.DEFINE_integer(name="num_hidden_layers", default=6, help="")
+# flags.DEFINE_integer(name="type_vocab_size", default=1, help="")
 
 # Tokenizer params
 flags.DEFINE_string(
