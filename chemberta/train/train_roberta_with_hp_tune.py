@@ -39,11 +39,6 @@ flags.DEFINE_enum(
 )
 
 # # RobertaConfig params
-# flags.DEFINE_integer(name="vocab_size", default=600, help="")
-# flags.DEFINE_integer(name="max_position_embeddings", default=515, help="")
-# flags.DEFINE_integer(name="num_attention_heads", default=6, help="")
-# flags.DEFINE_integer(name="num_hidden_layers", default=6, help="")
-# flags.DEFINE_integer(name="type_vocab_size", default=1, help="")
 roberta_model_configuration()
 
 # Tokenizer params

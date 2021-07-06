@@ -26,7 +26,7 @@ from transformers import RobertaConfig, TrainingArguments
 from transformers.trainer_callback import EarlyStoppingCallback
 
 from chemberta.train.flags import roberta_model_configuration
-from chemberta.train.utils import DatasetArguments, create_trainer
+from chemberta.train.utils import DatasetArguments, get_hyperopt_trainer
 
 FLAGS = flags.FLAGS
 
@@ -134,7 +134,7 @@ def main(argv):
         EarlyStoppingCallback(early_stopping_patience=FLAGS.early_stopping_patience)
     ]
 
-    trainer = create_trainer(
+    trainer = get_hyperopt_trainer(
         FLAGS.model_type, model_config, training_args, dataset_args, callbacks
     )
     trainer.train()
