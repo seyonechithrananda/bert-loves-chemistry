@@ -25,6 +25,7 @@ from absl import app, flags
 from transformers import RobertaConfig, TrainingArguments
 from transformers.trainer_callback import EarlyStoppingCallback
 
+from chemberta.train.flags import roberta_model_configuration
 from chemberta.train.utils import DatasetArguments, create_trainer
 
 FLAGS = flags.FLAGS
@@ -43,6 +44,7 @@ flags.DEFINE_enum(
 # flags.DEFINE_integer(name="num_attention_heads", default=6, help="")
 # flags.DEFINE_integer(name="num_hidden_layers", default=6, help="")
 # flags.DEFINE_integer(name="type_vocab_size", default=1, help="")
+roberta_model_configuration()
 
 # Tokenizer params
 flags.DEFINE_string(
