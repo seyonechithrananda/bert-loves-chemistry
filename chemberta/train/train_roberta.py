@@ -32,7 +32,10 @@ FLAGS = flags.FLAGS
 
 # Model params
 flags.DEFINE_enum(
-    name="model_type", default="mlm", enum_values=["mlm", "regression", "regression_lazy"], help=""
+    name="model_type",
+    default="mlm",
+    enum_values=["mlm", "regression", "regression_lazy"],
+    help="",
 )
 
 # RobertaConfig params
@@ -41,6 +44,7 @@ flags.DEFINE_integer(name="max_position_embeddings", default=515, help="")
 flags.DEFINE_integer(name="num_attention_heads", default=6, help="")
 flags.DEFINE_integer(name="num_hidden_layers", default=6, help="")
 flags.DEFINE_integer(name="type_vocab_size", default=1, help="")
+flags.DEFINE_float(name="hidden_dropout_prob", default=0.1, help="")
 
 # Tokenizer params
 flags.DEFINE_string(
@@ -55,6 +59,7 @@ flags.DEFINE_integer(name="tokenizer_block_size", default=512, help="")
 flags.DEFINE_string(name="dataset_path", default=None, help="")
 flags.DEFINE_string(name="output_dir", default="default_dir", help="")
 flags.DEFINE_string(name="run_name", default="default_run", help="")
+flags.DEFINE_string(name="eval_path", default=None, help="")
 
 # MLM params
 flags.DEFINE_float(
@@ -66,7 +71,7 @@ flags.DEFINE_string(name="normalization_path", default=None, help="")
 
 # Train params
 flags.DEFINE_float(name="frac_train", default=0.95, help="")
-flags.DEFINE_integer(name="eval_steps", default=10, help="")
+flags.DEFINE_integer(name="eval_steps", default=50, help="")
 flags.DEFINE_integer(name="early_stopping_patience", default=3, help="")
 flags.DEFINE_integer(name="logging_steps", default=10, help="")
 flags.DEFINE_boolean(name="overwrite_output_dir", default=True, help="")
@@ -74,6 +79,7 @@ flags.DEFINE_integer(name="num_train_epochs", default=100, help="")
 flags.DEFINE_integer(name="per_device_train_batch_size", default=64, help="")
 flags.DEFINE_integer(name="save_steps", default=100, help="")
 flags.DEFINE_integer(name="save_total_limit", default=2, help="")
+flags.DEFINE_float(name="learning_rate", default=5e-5, help="")
 
 flags.mark_flag_as_required("dataset_path")
 flags.mark_flag_as_required("model_type")
@@ -89,6 +95,7 @@ def main(argv):
         num_attention_heads=FLAGS.num_attention_heads,
         num_hidden_layers=FLAGS.num_hidden_layers,
         type_vocab_size=FLAGS.type_vocab_size,
+        hidden_dropout_prob=FLAGS.hidden_dropout_prob,
         is_gpu=torch.cuda.is_available(),
     )
 
@@ -96,6 +103,7 @@ def main(argv):
         FLAGS.dataset_path,
         FLAGS.normalization_path,
         FLAGS.frac_train,
+        FLAGS.eval_path,
         FLAGS.tokenizer_path,
         FLAGS.max_tokenizer_len,
         FLAGS.tokenizer_block_size,
@@ -104,6 +112,7 @@ def main(argv):
 
     training_args = TrainingArguments(
         evaluation_strategy="steps",
+        learning_rate=FLAGS.learning_rate,
         eval_steps=FLAGS.eval_steps,
         logging_steps=FLAGS.logging_steps,
         load_best_model_at_end=True,
@@ -112,12 +121,15 @@ def main(argv):
         overwrite_output_dir=FLAGS.overwrite_output_dir,
         num_train_epochs=FLAGS.num_train_epochs,
         per_device_train_batch_size=FLAGS.per_device_train_batch_size,
+        per_device_eval_batch_size=FLAGS.per_device_train_batch_size,
         save_steps=FLAGS.save_steps,
         save_total_limit=FLAGS.save_total_limit,
         fp16=torch.cuda.is_available(),  # fp16 only works on CUDA devices
     )
 
-    callbacks = [EarlyStoppingCallback(early_stopping_patience=FLAGS.early_stopping_patience)]
+    callbacks = [
+        EarlyStoppingCallback(early_stopping_patience=FLAGS.early_stopping_patience)
+    ]
 
     trainer = create_trainer(
         FLAGS.model_type, model_config, training_args, dataset_args, callbacks
