@@ -32,10 +32,7 @@ FLAGS = flags.FLAGS
 
 # Model params
 flags.DEFINE_enum(
-    name="model_type",
-    default="mlm",
-    enum_values=["mlm", "regression", "regression_lazy"],
-    help="",
+    name="model_type", default="mlm", enum_values=["mlm", "regression"], help="",
 )
 
 # RobertaConfig params

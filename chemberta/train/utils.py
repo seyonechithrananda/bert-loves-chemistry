@@ -4,16 +4,21 @@ from dataclasses import dataclass
 from typing import List
 
 from chemberta.utils.data_collators import multitask_data_collator
-from chemberta.utils.raw_text_dataset import (LazyRegressionDataset,
-                                              RawTextDataset,
-                                              RegressionTextDataset)
-from chemberta.utils.roberta_regression import \
-    RobertaForRegression  # RobertaForSequenceClassification,
+from chemberta.utils.raw_text_dataset import RawTextDataset, RegressionTextDataset
+from chemberta.utils.roberta_regression import (
+    RobertaForRegression,
+)  # RobertaForSequenceClassification,
 from nlp.features import string_to_arrow
 from torch.utils.data import random_split
-from transformers import (DataCollatorForLanguageModeling, RobertaConfig,
-                          RobertaForMaskedLM, RobertaForSequenceClassification,
-                          RobertaTokenizerFast, Trainer, TrainingArguments)
+from transformers import (
+    DataCollatorForLanguageModeling,
+    RobertaConfig,
+    RobertaForMaskedLM,
+    RobertaForSequenceClassification,
+    RobertaTokenizerFast,
+    Trainer,
+    TrainingArguments,
+)
 from transformers.data.data_collator import default_data_collator
 
 
@@ -25,14 +30,12 @@ def create_trainer(
     callbacks: List,
     pretrained_model=None,
 ):
-    print(dataset_args.tokenizer_path)
-    print(dataset_args.max_tokenizer_len)
+
     tokenizer = RobertaTokenizerFast.from_pretrained(
         dataset_args.tokenizer_path, max_len=dataset_args.max_tokenizer_len
     )
 
     if model_type == "mlm":
-
         dataset_class = RawTextDataset
         dataset = dataset_class(
             tokenizer=tokenizer,
@@ -46,24 +49,8 @@ def create_trainer(
         model = RobertaForMaskedLM
 
     elif model_type == "regression":
-        dataset = RegressionTextDataset(
-            tokenizer=tokenizer,
-            file_path=dataset_args.dataset_path,
-            block_size=dataset_args.tokenizer_block_size,
-        )
-
-        with open(dataset_args.normalization_path) as f:
-            normalization_values = json.load(f)
-
-        config.num_labels = dataset.num_labels
-        config.norm_mean = normalization_values["mean"]
-        config.norm_std = normalization_values["std"]
-        model = RobertaForRegression
-
-        data_collator = multitask_data_collator
-
-    elif model_type == "regression_lazy":
-        dataset = LazyRegressionDataset(
+        dataset_class = RegressionTextDataset
+        dataset = dataset_class(
             tokenizer=tokenizer,
             file_path=dataset_args.dataset_path,
             block_size=dataset_args.tokenizer_block_size,
@@ -80,7 +67,8 @@ def create_trainer(
         data_collator = multitask_data_collator
 
     elif model_type == "classification":
-        dataset = RegressionTextDataset(
+        dataset_class = RegressionTextDataset
+        dataset = dataset_class(
             tokenizer=tokenizer,
             file_path=dataset_args.dataset_path,
             block_size=dataset_args.tokenizer_block_size,
