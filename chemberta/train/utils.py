@@ -34,7 +34,7 @@ def create_trainer(
     pretrained_model=None,
 ):
     tokenizer = RobertaTokenizerFast.from_pretrained(
-        dataset_args.tokenizer_path, max_len=dataset_args.max_tokenizer_len
+        dataset_args.tokenizer_path,
     )
 
     if model_type == "mlm":
@@ -42,7 +42,7 @@ def create_trainer(
         dataset = dataset_class(
             tokenizer=tokenizer,
             file_path=dataset_args.dataset_path,
-            block_size=dataset_args.tokenizer_block_size,
+            block_size=dataset_args.tokenizer_max_length,
         )
 
         data_collator = DataCollatorForLanguageModeling(
@@ -55,7 +55,7 @@ def create_trainer(
         dataset = dataset_class(
             tokenizer=tokenizer,
             file_path=dataset_args.dataset_path,
-            block_size=dataset_args.tokenizer_block_size,
+            block_size=dataset_args.tokenizer_max_length,
         )
 
         with open(dataset_args.normalization_path) as f:
@@ -73,7 +73,7 @@ def create_trainer(
         dataset = dataset_class(
             tokenizer=tokenizer,
             file_path=dataset_args.dataset_path,
-            block_size=dataset_args.tokenizer_block_size,
+            block_size=dataset_args.tokenizer_max_length,
         )
 
         config.num_labels = dataset.num_labels
@@ -117,7 +117,7 @@ def get_hyperopt_trainer(
         dataset = RawTextDataset(
             tokenizer=tokenizer,
             file_path=dataset_args.dataset_path,
-            block_size=dataset_args.tokenizer_block_size,
+            block_size=dataset_args.tokenizer_max_length,
         )
         data_collator = DataCollatorForLanguageModeling(
             tokenizer=tokenizer, mlm=True, mlm_probability=dataset_args.mlm_probability
@@ -133,7 +133,7 @@ def get_hyperopt_trainer(
         dataset = RegressionTextDataset(
             tokenizer=tokenizer,
             file_path=dataset_args.dataset_path,
-            block_size=dataset_args.tokenizer_block_size,
+            block_size=dataset_args.tokenizer_max_length,
         )
 
         with open(dataset_args.normalization_path) as f:
@@ -155,7 +155,7 @@ def get_hyperopt_trainer(
         dataset = LazyRegressionDataset(
             tokenizer=tokenizer,
             file_path=dataset_args.dataset_path,
-            block_size=dataset_args.tokenizer_block_size,
+            block_size=dataset_args.tokenizer_max_length,
         )
 
         with open(dataset_args.normalization_path) as f:
@@ -196,8 +196,7 @@ class DatasetArguments:
     frac_train: float
     eval_path: str
     tokenizer_path: str
-    max_tokenizer_len: int
-    tokenizer_block_size: int
+    tokenizer_max_length: int
     mlm_probability: float
 
 

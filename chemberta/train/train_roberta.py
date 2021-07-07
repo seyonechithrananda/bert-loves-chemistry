@@ -25,7 +25,7 @@ from absl import app, flags
 from transformers import RobertaConfig, TrainingArguments
 from transformers.trainer_callback import EarlyStoppingCallback
 
-from chemberta.train.flags import roberta_model_configuration
+from chemberta.train.flags import roberta_model_configuration_flags, tokenizer_flags
 from chemberta.train.utils import DatasetArguments, get_hyperopt_trainer
 
 FLAGS = flags.FLAGS
@@ -38,22 +38,8 @@ flags.DEFINE_enum(
     help="",
 )
 
-# # RobertaConfig params
-# flags.DEFINE_integer(name="vocab_size", default=600, help="")
-# flags.DEFINE_integer(name="max_position_embeddings", default=515, help="")
-# flags.DEFINE_integer(name="num_attention_heads", default=6, help="")
-# flags.DEFINE_integer(name="num_hidden_layers", default=6, help="")
-# flags.DEFINE_integer(name="type_vocab_size", default=1, help="")
-roberta_model_configuration()
-
-# Tokenizer params
-flags.DEFINE_string(
-    name="tokenizer_path",
-    default="seyonec/SMILES_tokenized_PubChem_shard00_160k",
-    help="",
-)
-flags.DEFINE_integer(name="max_tokenizer_len", default=512, help="")
-flags.DEFINE_integer(name="tokenizer_block_size", default=512, help="")
+roberta_model_configuration_flags()
+tokenizer_flags()
 
 # Dataset params
 flags.DEFINE_string(name="dataset_path", default=None, help="")
@@ -108,8 +94,7 @@ def main(argv):
         FLAGS.frac_train,
         FLAGS.eval_path,
         FLAGS.tokenizer_path,
-        FLAGS.max_tokenizer_len,
-        FLAGS.tokenizer_block_size,
+        FLAGS.tokenizer_max_length,
         FLAGS.mlm_probability,
     )
 
