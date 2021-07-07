@@ -89,19 +89,9 @@ def create_trainer(
     else:
         model = model(config=config)
 
-    if dataset_args.eval_path:
-        train_dataset = dataset
-        eval_dataset = dataset_class(
-            tokenizer=tokenizer,
-            file_path=dataset_args.eval_path,
-            block_size=dataset_args.tokenizer_block_size,
-        )
-
-    else:
-        print("No eval set provided, splitting data into train and eval")
-        train_dataset, eval_dataset = get_train_test_split(
-            dataset, dataset_args.frac_train
-        )
+    train_dataset, eval_dataset = get_dataset_splits(
+        dataset, dataset_class, dataset_args, tokenizer
+    )
 
     return Trainer(
         model=model,
@@ -125,7 +115,25 @@ class DatasetArguments:
     mlm_probability: float
 
 
-def get_train_test_split(dataset, frac_train):
+def get_dataset_splits(dataset, dataset_class, dataset_args, tokenizer):
+    if dataset_args.eval_path:
+        train_dataset = dataset
+        eval_dataset = dataset_class(
+            tokenizer=tokenizer,
+            file_path=dataset_args.eval_path,
+            block_size=dataset_args.tokenizer_block_size,
+        )
+
+    else:
+        print("No eval set provided, splitting data into train and eval")
+        train_dataset, eval_dataset = create_train_test_split(
+            dataset, dataset_args.frac_train
+        )
+
+    return train_dataset, eval_dataset
+
+
+def create_train_test_split(dataset, frac_train):
     train_size = max(int(frac_train * len(dataset)), 1)
     eval_size = len(dataset) - train_size
     train_dataset, eval_dataset = random_split(dataset, [train_size, eval_size])
