@@ -40,8 +40,11 @@ flags.DEFINE_integer(name="vocab_size", default=600, help="")
 flags.DEFINE_integer(name="max_position_embeddings", default=515, help="")
 flags.DEFINE_integer(name="num_attention_heads", default=6, help="")
 flags.DEFINE_integer(name="num_hidden_layers", default=6, help="")
+flags.DEFINE_integer(name="hidden_size", defulat=768, help="")
 flags.DEFINE_integer(name="type_vocab_size", default=1, help="")
 flags.DEFINE_float(name="hidden_dropout_prob", default=0.1, help="")
+flags.DEFINE_float(name="attention_probs_dropout_prob", default=0.1, help="")
+
 
 # Tokenizer params
 flags.DEFINE_string(
@@ -91,8 +94,11 @@ def main(argv):
         max_position_embeddings=FLAGS.max_position_embeddings,
         num_attention_heads=FLAGS.num_attention_heads,
         num_hidden_layers=FLAGS.num_hidden_layers,
+        hidden_size=FLAGS.hidden_size,
+        intermediate_size=4 * FLAGS.hidden_size,
         type_vocab_size=FLAGS.type_vocab_size,
         hidden_dropout_prob=FLAGS.hidden_dropout_prob,
+        attention_probs_dropout_prob=FLAGS.attention_probs_dropout_prob,
         is_gpu=torch.cuda.is_available(),
     )
 
