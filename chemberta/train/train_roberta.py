@@ -34,8 +34,6 @@ from chemberta.train.flags import (
 )
 from chemberta.train.utils import DatasetArguments, create_trainer
 
-FLAGS = flags.FLAGS
-
 # Model params
 flags.DEFINE_enum(
     name="model_type",
@@ -59,6 +57,10 @@ flags.DEFINE_string(name="normalization_path", default=None, help="")
 
 flags.mark_flag_as_required("dataset_path")
 flags.mark_flag_as_required("model_type")
+
+FLAGS = flags.FLAGS
+
+flags_dict = FLAGS.flag_values_dict()
 
 
 def main(argv):
@@ -112,7 +114,7 @@ def main(argv):
     trainer = create_trainer(
         FLAGS.model_type, model_config, training_args, dataset_args, callbacks
     )
-    flags_dict = FLAGS.flag_values_dict()
+
     flags_file_path = os.path.join(run_dir, "params.yml")
     with open(flags_file_path, "w") as f:
         yaml.dump(flags_dict, f)
