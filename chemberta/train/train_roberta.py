@@ -61,8 +61,9 @@ flags.mark_flag_as_required("model_type")
 FLAGS = flags.FLAGS
 
 
-flags_dict = FLAGS.flag_values_dict()
-print(FLAGS.flags_by_module_dict())
+flags_dict = {
+    k: {vv.name: vv.value for vv in v} for k, v in FLAGS.flags_by_module_dict().items()
+}
 
 
 def main(argv):
