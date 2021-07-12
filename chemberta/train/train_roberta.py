@@ -21,6 +21,7 @@ Usage [regression]:
 import os
 
 import torch
+import yaml
 from absl import app, flags
 from transformers import RobertaConfig, TrainingArguments
 from transformers.trainer_callback import EarlyStoppingCallback
@@ -111,6 +112,12 @@ def main(argv):
     trainer = create_trainer(
         FLAGS.model_type, model_config, training_args, dataset_args, callbacks
     )
+    flags_dict = FLAGS.flag_values_dict()
+    flags_file_path = os.path.join(run_dir, "params.yml")
+    with open(flags_file_path, "w") as f:
+        yaml.dump(flags_dict, f)
+    print(f"Saved command-line flags to {flags_file_path}")
+
     trainer.train()
     trainer.save_model(os.path.join(run_dir, "final"))
 
