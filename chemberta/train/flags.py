@@ -156,3 +156,11 @@ def train_flags():
         help="If a value is passed, will limit the total amount of checkpoints. Deletes the older checkpoints in output_dir.",
         module_name="training",
     )
+    flags.DEFINE_float(
+        name="mlm_probability",
+        default=0.15,
+        lower_bound=0.0,
+        upper_bound=1.0,
+        help="Masking rate",
+        module_name="training",
+    )

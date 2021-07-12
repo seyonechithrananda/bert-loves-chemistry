@@ -47,11 +47,6 @@ roberta_model_configuration_flags()
 tokenizer_flags()
 train_flags()
 
-# MLM params
-flags.DEFINE_float(
-    name="mlm_probability", default=0.15, lower_bound=0.0, upper_bound=1.0, help=""
-)
-
 # Regression params
 flags.DEFINE_string(name="normalization_path", default=None, help="")
 
@@ -59,11 +54,6 @@ flags.mark_flag_as_required("dataset_path")
 flags.mark_flag_as_required("model_type")
 
 FLAGS = flags.FLAGS
-
-
-flags_dict = {
-    k: {vv.name: vv.value for vv in v} for k, v in FLAGS.flags_by_module_dict().items()
-}
 
 
 def main(argv):
@@ -117,6 +107,12 @@ def main(argv):
     trainer = create_trainer(
         FLAGS.model_type, model_config, training_args, dataset_args, callbacks
     )
+
+    flags_dict = {
+        k: {vv.name: vv.value for vv in v}
+        for k, v in FLAGS.flags_by_module_dict().items()
+        if k in ["dataset", "model", "training"]
+    }
 
     flags_file_path = os.path.join(run_dir, "params.yml")
     with open(flags_file_path, "w") as f:
