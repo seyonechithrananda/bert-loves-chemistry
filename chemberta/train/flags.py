@@ -127,6 +127,6 @@ def train_flags():
     )
     flags.DEFINE_integer(
         name="save_total_limit",
-        default=2,
+        default=None,
         help="If a value is passed, will limit the total amount of checkpoints. Deletes the older checkpoints in output_dir.",
     )
