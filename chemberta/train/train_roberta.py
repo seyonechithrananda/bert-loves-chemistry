@@ -25,7 +25,12 @@ from absl import app, flags
 from transformers import RobertaConfig, TrainingArguments
 from transformers.trainer_callback import EarlyStoppingCallback
 
-from chemberta.train.flags import roberta_model_configuration_flags, tokenizer_flags
+from chemberta.train.flags import (
+    dataset_flags,
+    roberta_model_configuration_flags,
+    tokenizer_flags,
+    train_flags,
+)
 from chemberta.train.utils import DatasetArguments, get_hyperopt_trainer
 
 FLAGS = flags.FLAGS
@@ -38,14 +43,10 @@ flags.DEFINE_enum(
     help="",
 )
 
+dataset_flags()
 roberta_model_configuration_flags()
 tokenizer_flags()
-
-# Dataset params
-flags.DEFINE_string(name="dataset_path", default=None, help="")
-flags.DEFINE_string(name="output_dir", default="default_dir", help="")
-flags.DEFINE_string(name="run_name", default="default_run", help="")
-flags.DEFINE_string(name="eval_path", default=None, help="")
+train_flags()
 
 # MLM params
 flags.DEFINE_float(
@@ -54,18 +55,6 @@ flags.DEFINE_float(
 
 # Regression params
 flags.DEFINE_string(name="normalization_path", default=None, help="")
-
-# Train params
-flags.DEFINE_float(name="frac_train", default=0.95, help="")
-flags.DEFINE_integer(name="eval_steps", default=50, help="")
-flags.DEFINE_integer(name="early_stopping_patience", default=3, help="")
-flags.DEFINE_integer(name="logging_steps", default=10, help="")
-flags.DEFINE_boolean(name="overwrite_output_dir", default=True, help="")
-flags.DEFINE_integer(name="num_train_epochs", default=100, help="")
-flags.DEFINE_integer(name="per_device_train_batch_size", default=64, help="")
-flags.DEFINE_integer(name="save_steps", default=100, help="")
-flags.DEFINE_integer(name="save_total_limit", default=2, help="")
-flags.DEFINE_float(name="learning_rate", default=5e-5, help="")
 
 flags.mark_flag_as_required("dataset_path")
 flags.mark_flag_as_required("model_type")

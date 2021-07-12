@@ -1,20 +1,15 @@
 import json
-import os
 from dataclasses import dataclass
 from typing import List
 
 from torch.utils.data import random_split
 from transformers import (
     DataCollatorForLanguageModeling,
-    RobertaConfig,
     RobertaForMaskedLM,
     RobertaForSequenceClassification,
     RobertaTokenizerFast,
     Trainer,
-    TrainingArguments,
 )
-
-from transformers.data.data_collator import default_data_collator
 
 from chemberta.utils.data_collators import multitask_data_collator
 from chemberta.utils.raw_text_dataset import (
