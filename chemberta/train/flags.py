@@ -13,9 +13,9 @@ def roberta_model_configuration_flags():
         help="The dropout probability for all fully connected layers in the embeddings, encoder, and pooler",
     )
     flags.DEFINE_integer(
-        name="hidden_size",
-        default=768,
-        help="Dimensionality of the encoder layers and the pooler layer.",
+        name="hidden_size_per_attention_head",
+        default=64,
+        help="Multiply with `num_attention_heads` to get the dimensionality of the encoder layers and the pooler layer.",
     )
     flags.DEFINE_integer(
         name="intermediate_size",
