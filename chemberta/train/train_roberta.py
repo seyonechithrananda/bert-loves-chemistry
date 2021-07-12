@@ -60,7 +60,9 @@ flags.mark_flag_as_required("model_type")
 
 FLAGS = flags.FLAGS
 
+
 flags_dict = FLAGS.flag_values_dict()
+print(FLAGS.flags_by_module_dict())
 
 
 def main(argv):
