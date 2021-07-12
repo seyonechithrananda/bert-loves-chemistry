@@ -31,7 +31,7 @@ from chemberta.train.flags import (
     tokenizer_flags,
     train_flags,
 )
-from chemberta.train.utils import DatasetArguments, get_hyperopt_trainer
+from chemberta.train.utils import DatasetArguments, create_trainer
 
 FLAGS = flags.FLAGS
 
@@ -108,7 +108,7 @@ def main(argv):
         EarlyStoppingCallback(early_stopping_patience=FLAGS.early_stopping_patience)
     ]
 
-    trainer = get_hyperopt_trainer(
+    trainer = create_trainer(
         FLAGS.model_type, model_config, training_args, dataset_args, callbacks
     )
     trainer.train()
