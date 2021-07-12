@@ -201,7 +201,7 @@ def get_dataset_splits(dataset, dataset_class, dataset_args, tokenizer):
         eval_dataset = dataset_class(
             tokenizer=tokenizer,
             file_path=dataset_args.eval_path,
-            block_size=dataset_args.tokenizer_block_size,
+            block_size=dataset_args.tokenizer_max_length,
         )
 
     else:
