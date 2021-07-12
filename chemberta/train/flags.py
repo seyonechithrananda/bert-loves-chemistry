@@ -8,11 +8,6 @@ def roberta_model_configuration_flags():
         help="The dropout ratio for the attention probabilities.",
     )
     flags.DEFINE_float(
-        name="attention_probs_dropout_prob",
-        default=0.1,
-        help="The dropout ratio for the attention probabilities.",
-    )
-    flags.DEFINE_float(
         name="hidden_dropout_prob",
         default=0.1,
         help="The dropout probability for all fully connected layers in the embeddings, encoder, and pooler",
