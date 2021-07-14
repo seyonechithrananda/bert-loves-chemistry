@@ -1,4 +1,5 @@
 import json
+import subprocess
 from dataclasses import dataclass
 from typing import List
 
@@ -9,6 +10,7 @@ from transformers import (
     RobertaForSequenceClassification,
     RobertaTokenizerFast,
     Trainer,
+    TrainerCallback,
 )
 
 from chemberta.utils.data_collators import multitask_data_collator
@@ -218,3 +220,24 @@ def create_train_test_split(dataset, frac_train):
     eval_size = len(dataset) - train_size
     train_dataset, eval_dataset = random_split(dataset, [train_size, eval_size])
     return train_dataset, eval_dataset
+
+
+class AwsS3Callback(TrainerCallback):
+    def __init__(self, local_directory, s3_directory):
+        self.local_directory = local_directory
+        self.s3_directory = s3_directory
+
+    def on_evaluate(self, args, state, control, **kwargs):
+        # sync local and remote directories
+        subprocess.check_call(
+            [
+                "aws",
+                "s3",
+                "sync",
+                self.local_directory,
+                self.s3_directory,
+                "--acl",
+                "bucket-owner-full-control",
+            ]
+        )
+        return

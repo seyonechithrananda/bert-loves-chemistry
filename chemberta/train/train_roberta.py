@@ -18,8 +18,11 @@ Usage [regression]:
 >
 """
 
+import glob
 import os
+import subprocess
 
+import s3fs
 import torch
 import yaml
 from absl import app, flags
@@ -32,7 +35,7 @@ from chemberta.train.flags import (
     tokenizer_flags,
     train_flags,
 )
-from chemberta.train.utils import DatasetArguments, create_trainer
+from chemberta.train.utils import AwsS3Callback, DatasetArguments, create_trainer
 
 # Model params
 flags.DEFINE_enum(
@@ -59,6 +62,8 @@ FLAGS = flags.FLAGS
 def main(argv):
     torch.manual_seed(0)
     run_dir = os.path.join(FLAGS.output_dir, FLAGS.run_name)
+    if not os.path.isdir(run_dir):
+        os.makedirs(run_dir)
 
     model_config = RobertaConfig(
         vocab_size=FLAGS.vocab_size,
@@ -95,14 +100,31 @@ def main(argv):
         num_train_epochs=FLAGS.num_train_epochs,
         per_device_train_batch_size=FLAGS.per_device_train_batch_size,
         per_device_eval_batch_size=FLAGS.per_device_train_batch_size,
-        save_steps=FLAGS.save_steps,
+        # save_steps=FLAGS.save_steps,
         save_total_limit=FLAGS.save_total_limit,
         fp16=torch.cuda.is_available(),  # fp16 only works on CUDA devices
     )
 
     callbacks = [
-        EarlyStoppingCallback(early_stopping_patience=FLAGS.early_stopping_patience)
+        EarlyStoppingCallback(early_stopping_patience=FLAGS.early_stopping_patience),
     ]
+
+    if FLAGS.cloud_directory is not None:
+        # check if remote directory exists, pull down
+        fs = s3fs.S3FileSystem()
+        if fs.exists(FLAGS.cloud_directory):
+            subprocess.check_call(
+                [
+                    "aws",
+                    "s3",
+                    "sync",
+                    FLAGS.cloud_directory,
+                    run_dir,
+                ]
+            )
+        callbacks.append(
+            AwsS3Callback(local_directory=run_dir, s3_directory=FLAGS.cloud_directory)
+        )
 
     trainer = create_trainer(
         FLAGS.model_type, model_config, training_args, dataset_args, callbacks
@@ -119,7 +141,16 @@ def main(argv):
         yaml.dump(flags_dict, f)
     print(f"Saved command-line flags to {flags_file_path}")
 
-    trainer.train()
+    # if there is a checkpoint available, use it
+    checkpoints = glob.glob(os.path.join(run_dir, "checkpoint-*"))
+    if checkpoints:
+        iters = [int(x.split("-")[-1]) for x in checkpoints if "checkpoint" in x]
+        iters.sort()
+        latest_checkpoint = os.path.join(run_dir, f"checkpoint-{iters[-1]}")
+        print(f"Loading model from latest checkpoint: {latest_checkpoint}")
+        trainer.train(resume_from_checkpoint=latest_checkpoint)
+    else:
+        trainer.train()
     trainer.save_model(os.path.join(run_dir, "final"))
 
 

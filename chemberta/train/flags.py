@@ -144,12 +144,12 @@ def train_flags():
         help="The batch size per GPU/TPU core/CPU for training.",
         module_name="training",
     )
-    flags.DEFINE_integer(
-        name="save_steps",
-        default=100,
-        help="Number of updates steps before two checkpoint saves if save_strategy='steps'",
-        module_name="training",
-    )
+    # flags.DEFINE_integer(
+    #     name="save_steps",
+    #     default=100,
+    #     help="Number of updates steps before two checkpoint saves if save_strategy='steps'",
+    #     module_name="training",
+    # )
     flags.DEFINE_integer(
         name="save_total_limit",
         default=None,
@@ -162,5 +162,11 @@ def train_flags():
         lower_bound=0.0,
         upper_bound=1.0,
         help="Masking rate",
+        module_name="training",
+    )
+    flags.DEFINE_string(
+        name="cloud_directory",
+        default=None,
+        help="If provided, syncs the run directory here using a callback.",
         module_name="training",
     )
