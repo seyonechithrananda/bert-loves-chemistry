@@ -100,7 +100,6 @@ def main(argv):
         num_train_epochs=FLAGS.num_train_epochs,
         per_device_train_batch_size=FLAGS.per_device_train_batch_size,
         per_device_eval_batch_size=FLAGS.per_device_train_batch_size,
-        # save_steps=FLAGS.save_steps,
         save_total_limit=FLAGS.save_total_limit,
         fp16=torch.cuda.is_available(),  # fp16 only works on CUDA devices
     )
@@ -112,18 +111,19 @@ def main(argv):
     if FLAGS.cloud_directory is not None:
         # check if remote directory exists, pull down
         fs = s3fs.S3FileSystem()
-        if fs.exists(FLAGS.cloud_directory):
+        full_cloud_dir = os.path.join(FLAGS.cloud_directory, FLAGS.run_name)
+        if fs.exists(full_cloud_dir):
             subprocess.check_call(
                 [
                     "aws",
                     "s3",
                     "sync",
-                    FLAGS.cloud_directory,
+                    full_cloud_dir,
                     run_dir,
                 ]
             )
         callbacks.append(
-            AwsS3Callback(local_directory=run_dir, s3_directory=FLAGS.cloud_directory)
+            AwsS3Callback(local_directory=run_dir, s3_directory=full_cloud_dir)
         )
 
     trainer = create_trainer(
@@ -152,6 +152,20 @@ def main(argv):
     else:
         trainer.train()
     trainer.save_model(os.path.join(run_dir, "final"))
+
+    # do a final sync
+    if FLAGS.cloud_directory is not None:
+        subprocess.check_call(
+            [
+                "aws",
+                "s3",
+                "sync",
+                run_dir,
+                full_cloud_dir,
+                "--acl",
+                "bucket-owner-full-control",
+            ]
+        )
 
 
 if __name__ == "__main__":

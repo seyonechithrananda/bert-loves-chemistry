@@ -144,12 +144,6 @@ def train_flags():
         help="The batch size per GPU/TPU core/CPU for training.",
         module_name="training",
     )
-    # flags.DEFINE_integer(
-    #     name="save_steps",
-    #     default=100,
-    #     help="Number of updates steps before two checkpoint saves if save_strategy='steps'",
-    #     module_name="training",
-    # )
     flags.DEFINE_integer(
         name="save_total_limit",
         default=None,
