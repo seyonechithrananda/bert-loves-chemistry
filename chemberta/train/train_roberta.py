@@ -113,6 +113,7 @@ def main(argv):
         fs = s3fs.S3FileSystem()
         full_cloud_dir = os.path.join(FLAGS.cloud_directory, FLAGS.run_name)
         if fs.exists(full_cloud_dir):
+            print(f"Found existing directory at {full_cloud_dir}. Downloading...")
             subprocess.check_call(
                 [
                     "aws",
