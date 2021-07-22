@@ -120,6 +120,12 @@ def train_flags():
         help="The initial learning rate for AdamW optimizer",
         module_name="training",
     )
+    flags.DEFINE_boolean(
+        name="load_best_model_at_end",
+        default=True,
+        help="Whether or not to load the best model found during training at the end of training. When set to True (for HF 4.6), the parameters `save_strategy` and `save_steps` will be ignored and the model will be saved after each evaluation.",
+        module_name="training",
+    )
     flags.DEFINE_integer(
         name="logging_steps",
         default=10,
@@ -148,6 +154,12 @@ def train_flags():
         name="save_total_limit",
         default=None,
         help="If a value is passed, will limit the total amount of checkpoints. Deletes the older checkpoints in output_dir.",
+        module_name="training",
+    )
+    flags.DEFINE_integer(
+        name="save_steps",
+        default=500,
+        help="Number of updates steps before two checkpoint saves if `save_strategy`='steps'",
         module_name="training",
     )
     flags.DEFINE_float(
