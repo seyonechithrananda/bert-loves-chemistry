@@ -26,6 +26,7 @@ python finetune.py --datasets=bbbp
 """
 import json
 import os
+import s3fs
 import shutil
 import subprocess
 import tempfile
@@ -82,7 +83,6 @@ flags.DEFINE_boolean(
 # Train params
 flags.DEFINE_integer(name="logging_steps", default=10, help="")
 flags.DEFINE_integer(name="early_stopping_patience", default=5, help="")
-flags.DEFINE_integer(name="num_train_epochs_max", default=10, help="")
 flags.DEFINE_integer(name="per_device_train_batch_size", default=64, help="")
 flags.DEFINE_integer(name="per_device_eval_batch_size", default=64, help="")
 flags.DEFINE_integer(
@@ -195,7 +195,9 @@ def sync_with_s3(source_dir: str, target_dir: str):
 
 def get_latest_checkpoint(saved_model_dir):
     """Get the folder for the latest checkpoint"""
-    iters = [int(x.split("-")[-1]) for x in fs.ls(saved_model_dir) if "checkpoint" in x]
+    iters = [
+        int(x.split("-")[-1]) for x in os.listdir(saved_model_dir) if "checkpoint" in x
+    ]
     iters.sort()
     latest_checkpoint_dir = os.path.join(saved_model_dir, f"checkpoint-{iters[-1]}")
     return latest_checkpoint_dir
@@ -251,6 +253,7 @@ def finetune_model_on_single_dataset(
 
     if check_cloud(pretrained_model_dir):
         local_dir = tempfile.mkdtemp()
+        print(f"Syncing {pretrained_model_dir} to {local_dir}")
         sync_with_s3(pretrained_model_dir, local_dir)
 
     else:
@@ -427,6 +430,9 @@ def finetune_model_on_single_dataset(
     for d in glob(os.path.join(run_dir, "checkpoint-*")):
         shutil.rmtree(d, ignore_errors=True)
     shutil.rmtree(warmup_dir, ignore_errors=True)
+
+    hp_trainer.save_state()
+    hp_trainer.save_model(os.path.join(run_dir, "final"))
 
 
 def eval_model(trainer, dataset, dataset_name, dataset_type, output_dir, random_seed):
