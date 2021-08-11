@@ -397,7 +397,6 @@ def finetune_model_on_single_dataset(
     metrics_test = {}
 
     # Run with several seeds so we can see std
-    os.environ["WANDB_DISABLED"] = "false"
     for random_seed in range(FLAGS.n_seeds):
         setattr(hp_trainer.args, "seed", random_seed)
         setattr(hp_trainer.args, "run_name", f"run_{random_seed}")
