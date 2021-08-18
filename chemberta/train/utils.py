@@ -1,25 +1,25 @@
 import json
-import os
+import subprocess
 from dataclasses import dataclass
 from typing import List
 
-from chemberta.utils.data_collators import multitask_data_collator
-from chemberta.utils.raw_text_dataset import RawTextDataset, RegressionTextDataset
-from chemberta.utils.roberta_regression import (
-    RobertaForRegression,
-)  # RobertaForSequenceClassification,
-from nlp.features import string_to_arrow
 from torch.utils.data import random_split
 from transformers import (
     DataCollatorForLanguageModeling,
-    RobertaConfig,
     RobertaForMaskedLM,
     RobertaForSequenceClassification,
     RobertaTokenizerFast,
     Trainer,
-    TrainingArguments,
+    TrainerCallback,
 )
-from transformers.data.data_collator import default_data_collator
+
+from chemberta.utils.data_collators import multitask_data_collator
+from chemberta.utils.raw_text_dataset import (
+    LazyRegressionDataset,
+    RawTextDataset,
+    RegressionTextDataset,
+)
+from chemberta.utils.roberta_regression import RobertaForRegression
 
 
 def create_trainer(
@@ -30,9 +30,8 @@ def create_trainer(
     callbacks: List,
     pretrained_model=None,
 ):
-
     tokenizer = RobertaTokenizerFast.from_pretrained(
-        dataset_args.tokenizer_path, max_len=dataset_args.max_tokenizer_len
+        dataset_args.tokenizer_path,
     )
 
     if model_type == "mlm":
@@ -40,7 +39,7 @@ def create_trainer(
         dataset = dataset_class(
             tokenizer=tokenizer,
             file_path=dataset_args.dataset_path,
-            block_size=dataset_args.tokenizer_block_size,
+            block_size=dataset_args.tokenizer_max_length,
         )
 
         data_collator = DataCollatorForLanguageModeling(
@@ -53,7 +52,7 @@ def create_trainer(
         dataset = dataset_class(
             tokenizer=tokenizer,
             file_path=dataset_args.dataset_path,
-            block_size=dataset_args.tokenizer_block_size,
+            block_size=dataset_args.tokenizer_max_length,
         )
 
         with open(dataset_args.normalization_path) as f:
@@ -71,7 +70,7 @@ def create_trainer(
         dataset = dataset_class(
             tokenizer=tokenizer,
             file_path=dataset_args.dataset_path,
-            block_size=dataset_args.tokenizer_block_size,
+            block_size=dataset_args.tokenizer_max_length,
         )
 
         config.num_labels = dataset.num_labels
@@ -103,6 +102,90 @@ def create_trainer(
     )
 
 
+def get_hyperopt_trainer(
+    model_type, config, training_args, dataset_args, callbacks: List
+):
+
+    tokenizer = RobertaTokenizerFast.from_pretrained(
+        dataset_args.tokenizer_path, max_len=dataset_args.max_tokenizer_len
+    )
+
+    if model_type == "mlm":
+        dataset = RawTextDataset(
+            tokenizer=tokenizer,
+            file_path=dataset_args.dataset_path,
+            block_size=dataset_args.tokenizer_max_length,
+        )
+        data_collator = DataCollatorForLanguageModeling(
+            tokenizer=tokenizer, mlm=True, mlm_probability=dataset_args.mlm_probability
+        )
+
+        def model_init_fn():
+            model = RobertaForMaskedLM(config=config)
+            return model
+
+        model_init_callable = model_init_fn
+
+    elif model_type == "regression":
+        dataset = RegressionTextDataset(
+            tokenizer=tokenizer,
+            file_path=dataset_args.dataset_path,
+            block_size=dataset_args.tokenizer_max_length,
+        )
+
+        with open(dataset_args.normalization_path) as f:
+            normalization_values = json.load(f)
+
+        config.num_labels = dataset.num_labels
+        config.norm_mean = normalization_values["mean"]
+        config.norm_std = normalization_values["std"]
+
+        def model_init_fn():
+            model = RobertaForRegression(config=config)
+            return model
+
+        model_init_callable = model_init_fn
+
+        data_collator = multitask_data_collator
+
+    elif model_type == "regression_lazy":
+        dataset = LazyRegressionDataset(
+            tokenizer=tokenizer,
+            file_path=dataset_args.dataset_path,
+            block_size=dataset_args.tokenizer_max_length,
+        )
+
+        with open(dataset_args.normalization_path) as f:
+            normalization_values = json.load(f)
+
+        config.num_labels = dataset.num_labels
+        config.norm_mean = normalization_values["mean"]
+        config.norm_std = normalization_values["std"]
+        model = RobertaForRegression(config=config)
+
+        def model_init_fn():
+            model = RobertaForRegression(config=config)
+            return model
+
+        model_init_callable = model_init_fn
+
+        data_collator = multitask_data_collator
+
+    else:
+        raise ValueError(model_type)
+
+    train_dataset, eval_dataset = get_train_test_split(dataset, dataset_args.frac_train)
+
+    return Trainer(
+        model_init=model_init_callable,
+        args=training_args,
+        data_collator=data_collator,
+        train_dataset=train_dataset,
+        eval_dataset=eval_dataset,
+        callbacks=callbacks,
+    )
+
+
 @dataclass
 class DatasetArguments:
     dataset_path: str
@@ -110,8 +193,7 @@ class DatasetArguments:
     frac_train: float
     eval_path: str
     tokenizer_path: str
-    max_tokenizer_len: int
-    tokenizer_block_size: int
+    tokenizer_max_length: int
     mlm_probability: float
 
 
@@ -121,7 +203,7 @@ def get_dataset_splits(dataset, dataset_class, dataset_args, tokenizer):
         eval_dataset = dataset_class(
             tokenizer=tokenizer,
             file_path=dataset_args.eval_path,
-            block_size=dataset_args.tokenizer_block_size,
+            block_size=dataset_args.tokenizer_max_length,
         )
 
     else:
@@ -138,3 +220,24 @@ def create_train_test_split(dataset, frac_train):
     eval_size = len(dataset) - train_size
     train_dataset, eval_dataset = random_split(dataset, [train_size, eval_size])
     return train_dataset, eval_dataset
+
+
+class AwsS3Callback(TrainerCallback):
+    def __init__(self, local_directory, s3_directory):
+        self.local_directory = local_directory
+        self.s3_directory = s3_directory
+
+    def on_evaluate(self, args, state, control, **kwargs):
+        # sync local and remote directories
+        subprocess.check_call(
+            [
+                "aws",
+                "s3",
+                "sync",
+                self.local_directory,
+                self.s3_directory,
+                "--acl",
+                "bucket-owner-full-control",
+            ]
+        )
+        return

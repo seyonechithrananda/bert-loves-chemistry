@@ -18,84 +18,60 @@ Usage [regression]:
 >
 """
 
+import glob
 import os
+import subprocess
 
-import pandas as pd
+import s3fs
 import torch
-import transformers
+import yaml
 from absl import app, flags
-from chemberta.train.utils import DatasetArguments, create_trainer
 from transformers import RobertaConfig, TrainingArguments
 from transformers.trainer_callback import EarlyStoppingCallback
 
-FLAGS = flags.FLAGS
+from chemberta.train.flags import (
+    dataset_flags,
+    roberta_model_configuration_flags,
+    tokenizer_flags,
+    train_flags,
+)
+from chemberta.train.utils import AwsS3Callback, DatasetArguments, create_trainer
 
 # Model params
 flags.DEFINE_enum(
-    name="model_type", default="mlm", enum_values=["mlm", "regression"], help=""
-)
-
-# RobertaConfig params
-flags.DEFINE_integer(name="vocab_size", default=600, help="")
-flags.DEFINE_integer(name="max_position_embeddings", default=515, help="")
-flags.DEFINE_integer(name="num_attention_heads", default=6, help="")
-flags.DEFINE_integer(name="num_hidden_layers", default=6, help="")
-flags.DEFINE_integer(name="hidden_size", defulat=768, help="")
-flags.DEFINE_integer(name="type_vocab_size", default=1, help="")
-flags.DEFINE_float(name="hidden_dropout_prob", default=0.1, help="")
-flags.DEFINE_float(name="attention_probs_dropout_prob", default=0.1, help="")
-
-
-# Tokenizer params
-flags.DEFINE_string(
-    name="tokenizer_path",
-    default="seyonec/SMILES_tokenized_PubChem_shard00_160k",
+    name="model_type",
+    default="mlm",
+    enum_values=["mlm", "regression", "regression_lazy"],
     help="",
 )
-flags.DEFINE_integer(name="max_tokenizer_len", default=512, help="")
-flags.DEFINE_integer(name="tokenizer_block_size", default=512, help="")
 
-# Dataset params
-flags.DEFINE_string(name="dataset_path", default=None, help="")
-flags.DEFINE_string(name="output_dir", default="default_dir", help="")
-flags.DEFINE_string(name="run_name", default="default_run", help="")
-flags.DEFINE_string(name="eval_path", default=None, help="")
-
-# MLM params
-flags.DEFINE_float(
-    name="mlm_probability", default=0.15, lower_bound=0.0, upper_bound=1.0, help=""
-)
+dataset_flags()
+roberta_model_configuration_flags()
+tokenizer_flags()
+train_flags()
 
 # Regression params
 flags.DEFINE_string(name="normalization_path", default=None, help="")
 
-# Train params
-flags.DEFINE_float(name="frac_train", default=0.95, help="")
-flags.DEFINE_integer(name="eval_steps", default=50, help="")
-flags.DEFINE_integer(name="early_stopping_patience", default=3, help="")
-flags.DEFINE_integer(name="logging_steps", default=10, help="")
-flags.DEFINE_boolean(name="overwrite_output_dir", default=True, help="")
-flags.DEFINE_integer(name="num_train_epochs", default=100, help="")
-flags.DEFINE_integer(name="per_device_train_batch_size", default=64, help="")
-flags.DEFINE_integer(name="save_steps", default=100, help="")
-flags.DEFINE_integer(name="save_total_limit", default=2, help="")
-flags.DEFINE_float(name="learning_rate", default=5e-5, help="")
-
 flags.mark_flag_as_required("dataset_path")
 flags.mark_flag_as_required("model_type")
+
+FLAGS = flags.FLAGS
 
 
 def main(argv):
     torch.manual_seed(0)
     run_dir = os.path.join(FLAGS.output_dir, FLAGS.run_name)
+    if not os.path.isdir(run_dir):
+        os.makedirs(run_dir)
 
     model_config = RobertaConfig(
         vocab_size=FLAGS.vocab_size,
         max_position_embeddings=FLAGS.max_position_embeddings,
         num_attention_heads=FLAGS.num_attention_heads,
         num_hidden_layers=FLAGS.num_hidden_layers,
-        hidden_size=FLAGS.hidden_size,
-        intermediate_size=4 * FLAGS.hidden_size,
+        hidden_size=FLAGS.hidden_size_per_attention_head * FLAGS.num_attention_heads,
+        intermediate_size=4 * FLAGS.intermediate_size,
         type_vocab_size=FLAGS.type_vocab_size,
         hidden_dropout_prob=FLAGS.hidden_dropout_prob,
         attention_probs_dropout_prob=FLAGS.attention_probs_dropout_prob,
@@ -108,8 +84,7 @@ def main(argv):
         FLAGS.frac_train,
         FLAGS.eval_path,
         FLAGS.tokenizer_path,
-        FLAGS.max_tokenizer_len,
-        FLAGS.tokenizer_block_size,
+        FLAGS.tokenizer_max_length,
         FLAGS.mlm_probability,
     )
 
@@ -118,27 +93,81 @@ def main(argv):
         learning_rate=FLAGS.learning_rate,
         eval_steps=FLAGS.eval_steps,
         logging_steps=FLAGS.logging_steps,
-        load_best_model_at_end=True,
+        save_steps=FLAGS.save_steps,
+        load_best_model_at_end=FLAGS.load_best_model_at_end,
         output_dir=run_dir,
         run_name=FLAGS.run_name,
         overwrite_output_dir=FLAGS.overwrite_output_dir,
         num_train_epochs=FLAGS.num_train_epochs,
         per_device_train_batch_size=FLAGS.per_device_train_batch_size,
         per_device_eval_batch_size=FLAGS.per_device_train_batch_size,
-        save_steps=FLAGS.save_steps,
         save_total_limit=FLAGS.save_total_limit,
         fp16=torch.cuda.is_available(),  # fp16 only works on CUDA devices
     )
 
     callbacks = [
-        EarlyStoppingCallback(early_stopping_patience=FLAGS.early_stopping_patience)
+        EarlyStoppingCallback(early_stopping_patience=FLAGS.early_stopping_patience),
     ]
+
+    if FLAGS.cloud_directory is not None:
+        # check if remote directory exists, pull down
+        fs = s3fs.S3FileSystem()
+        full_cloud_dir = os.path.join(FLAGS.cloud_directory, FLAGS.run_name)
+        if fs.exists(full_cloud_dir):
+            print(f"Found existing directory at {full_cloud_dir}. Downloading...")
+            subprocess.check_call(
+                [
+                    "aws",
+                    "s3",
+                    "sync",
+                    full_cloud_dir,
+                    run_dir,
+                ]
+            )
+        callbacks.append(
+            AwsS3Callback(local_directory=run_dir, s3_directory=full_cloud_dir)
+        )
 
     trainer = create_trainer(
         FLAGS.model_type, model_config, training_args, dataset_args, callbacks
     )
-    trainer.train()
+
+    flags_dict = {
+        k: {vv.name: vv.value for vv in v}
+        for k, v in FLAGS.flags_by_module_dict().items()
+        if k in ["dataset", "model", "training"]
+    }
+
+    flags_file_path = os.path.join(run_dir, "params.yml")
+    with open(flags_file_path, "w") as f:
+        yaml.dump(flags_dict, f)
+    print(f"Saved command-line flags to {flags_file_path}")
+
+    # if there is a checkpoint available, use it
+    checkpoints = glob.glob(os.path.join(run_dir, "checkpoint-*"))
+    if checkpoints:
+        iters = [int(x.split("-")[-1]) for x in checkpoints if "checkpoint" in x]
+        iters.sort()
+        latest_checkpoint = os.path.join(run_dir, f"checkpoint-{iters[-1]}")
+        print(f"Loading model from latest checkpoint: {latest_checkpoint}")
+        trainer.train(resume_from_checkpoint=latest_checkpoint)
+    else:
+        trainer.train()
     trainer.save_model(os.path.join(run_dir, "final"))
+
+    # do a final sync
+    if FLAGS.cloud_directory is not None:
+        subprocess.check_call(
+            [
+                "aws",
+                "s3",
+                "sync",
+                run_dir,
+                full_cloud_dir,
+                "--acl",
+                "bucket-owner-full-control",
+            ]
+        )
 
 
 if __name__ == "__main__":
