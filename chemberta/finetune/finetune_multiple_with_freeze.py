@@ -26,12 +26,8 @@ python finetune.py --datasets=bbbp
 """
 import json
 import os
-import s3fs
 import shutil
-import subprocess
 import tempfile
-from collections import OrderedDict
-from dataclasses import dataclass
 from glob import glob
 from typing import List
 
@@ -41,6 +37,17 @@ import pandas as pd
 import seaborn as sns
 import torch
 from absl import app, flags
+from chemberta.finetune.utils import (
+    get_finetune_datasets,
+    get_latest_checkpoint,
+    prune_state_dict,
+)
+from chemberta.utils.cloud import check_cloud, sync_with_s3
+from chemberta.utils.molnet_dataloader import get_dataset_info, load_molnet_dataset
+from chemberta.utils.roberta_regression import (
+    RobertaForRegression,
+    RobertaForSequenceClassification,
+)
 from scipy.special import softmax
 from scipy.stats import pearsonr
 from sklearn.metrics import (
@@ -51,12 +58,6 @@ from sklearn.metrics import (
 )
 from transformers import RobertaConfig, RobertaTokenizerFast, Trainer, TrainingArguments
 from transformers.trainer_callback import EarlyStoppingCallback
-
-from chemberta.utils.molnet_dataloader import get_dataset_info, load_molnet_dataset
-from chemberta.utils.roberta_regression import (
-    RobertaForRegression,
-    RobertaForSequenceClassification,
-)
 
 FLAGS = flags.FLAGS
 
@@ -168,60 +169,6 @@ def main(argv):
                     run_dir,
                     is_molnet,
                 )
-
-
-def check_cloud(path: str):
-    """Naive check to if the path is a cloud path"""
-    if path.startswith("s3:"):
-        return True
-    return False
-
-
-def sync_with_s3(source_dir: str, target_dir: str):
-    """Sync source_dir directory with target_dir"""
-    subprocess.check_call(
-        [
-            "aws",
-            "s3",
-            "sync",
-            source_dir,
-            target_dir,
-            "--acl",
-            "bucket-owner-full-control",
-        ]
-    )
-    return
-
-
-def get_latest_checkpoint(saved_model_dir):
-    """Get the folder for the latest checkpoint"""
-    iters = [
-        int(x.split("-")[-1]) for x in os.listdir(saved_model_dir) if "checkpoint" in x
-    ]
-    iters.sort()
-    latest_checkpoint_dir = os.path.join(saved_model_dir, f"checkpoint-{iters[-1]}")
-    return latest_checkpoint_dir
-
-
-def prune_state_dict(model_dir):
-    """Remove problematic keys from state dictionary"""
-    if not (model_dir and os.path.exists(os.path.join(model_dir, "pytorch_model.bin"))):
-        return None
-
-    state_dict_path = os.path.join(model_dir, "pytorch_model.bin")
-    assert os.path.exists(
-        state_dict_path
-    ), f"No `pytorch_model.bin` file found in {model_dir}"
-    loaded_state_dict = torch.load(state_dict_path)
-    state_keys = loaded_state_dict.keys()
-    keys_to_remove = [
-        k for k in state_keys if k.startswith("regression") or k.startswith("norm")
-    ]
-
-    new_state_dict = OrderedDict({**loaded_state_dict})
-    for k in keys_to_remove:
-        del new_state_dict[k]
-    return new_state_dict
 
 
 def finetune_model_on_single_dataset(
@@ -471,67 +418,8 @@ def eval_model(trainer, dataset, dataset_name, dataset_type, output_dir, random_
     return metrics
 
 
-def get_finetune_datasets(dataset_name, tokenizer, is_molnet):
-    if is_molnet:
-        tasks, (train_df, valid_df, test_df), _ = load_molnet_dataset(
-            dataset_name, split=FLAGS.split, df_format="chemprop"
-        )
-        assert len(tasks) == 1
-    else:
-        train_df = pd.read_csv(os.path.join(dataset_name, "train.csv"))
-        valid_df = pd.read_csv(os.path.join(dataset_name, "valid.csv"))
-        test_df = pd.read_csv(os.path.join(dataset_name, "test.csv"))
-
-    train_dataset = FinetuneDataset(train_df, tokenizer)
-    valid_dataset = FinetuneDataset(valid_df, tokenizer)
-    valid_dataset_unlabeled = FinetuneDataset(valid_df, tokenizer, include_labels=False)
-    test_dataset = FinetuneDataset(test_df, tokenizer, include_labels=False)
-
-    num_labels = len(np.unique(train_dataset.labels))
-    norm_mean = [np.mean(np.array(train_dataset.labels), axis=0)]
-    norm_std = [np.std(np.array(train_dataset.labels), axis=0)]
-
-    return FinetuneDatasets(
-        train_dataset,
-        valid_dataset,
-        valid_dataset_unlabeled,
-        test_dataset,
-        num_labels,
-        norm_mean,
-        norm_std,
-    )
-
-
 def get_dataset_name(dataset_name_or_path):
     return os.path.splitext(os.path.basename(dataset_name_or_path))[0]
-
-
-@dataclass
-class FinetuneDatasets:
-    train_dataset: str
-    valid_dataset: torch.utils.data.Dataset
-    valid_dataset_unlabeled: torch.utils.data.Dataset
-    test_dataset: torch.utils.data.Dataset
-    num_labels: int
-    norm_mean: List[float]
-    norm_std: List[float]
-
-
-class FinetuneDataset(torch.utils.data.Dataset):
-    def __init__(self, df, tokenizer, include_labels=True):
-
-        self.encodings = tokenizer(df["smiles"].tolist(), truncation=True, padding=True)
-        self.labels = df.iloc[:, 1].values
-        self.include_labels = include_labels
-
-    def __getitem__(self, idx):
-        item = {key: torch.tensor(val[idx]) for key, val in self.encodings.items()}
-        if self.include_labels and self.labels is not None:
-            item["labels"] = torch.tensor(self.labels[idx])
-        return item
-
-    def __len__(self):
-        return len(self.encodings["input_ids"])
 
 
 if __name__ == "__main__":
