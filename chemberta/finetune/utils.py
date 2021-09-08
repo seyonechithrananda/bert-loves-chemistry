@@ -10,9 +10,6 @@ from typing import Dict, List, Optional
 
 from transformers import RobertaTokenizerFast
 
-from chemberta.utils.molnet_dataloader import load_molnet_dataset
-
-
 @dataclass
 class FinetuneDatasets:
     train_dataset: str
@@ -101,6 +98,11 @@ def get_finetune_datasets(
         split: type of split to use for DeepChem data loader
     """
     if is_molnet:
+        try:
+            from chemberta.utils.molnet_dataloader import load_molnet_dataset
+        except ImportError:
+            raise ImportError("`deepchem` needed to load MolNet datasets")
+
         tasks, (train_df, valid_df, test_df), _ = load_molnet_dataset(
             dataset_name, split=split, df_format="chemprop"
         )
