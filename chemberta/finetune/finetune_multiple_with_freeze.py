@@ -199,7 +199,9 @@ def finetune_model_on_single_dataset(
     finetune_datasets = get_finetune_datasets(dataset_name, tokenizer, is_molnet)
 
     if check_cloud(pretrained_model_dir):
-        local_dir = tempfile.mkdtemp()
+        local_dir = os.path.join(
+            tempfile.gettempdir(), os.sep.join(pretrained_model_dir.split(os.sep)[2:])
+        )
         print(f"Syncing {pretrained_model_dir} to {local_dir}")
         sync_with_s3(pretrained_model_dir, local_dir)
 
@@ -211,6 +213,14 @@ def finetune_model_on_single_dataset(
 
     else:
         checkpoint_dir = get_latest_checkpoint(local_dir)
+        other_checkpoint_dirs = [
+            os.path.join(local_dir, x)
+            for x in os.listdir(local_dir)
+            if "checkpoint" in x
+        ]
+        other_checkpoint_dirs.remove(checkpoint_dir)
+        for dir in other_checkpoint_dirs:
+            shutil.rmtree(dir, ignore_errors=True)
 
     assert os.path.isdir(
         checkpoint_dir
@@ -300,6 +310,7 @@ def finetune_model_on_single_dataset(
         logging_steps=FLAGS.logging_steps,
         load_best_model_at_end=True,
         report_to=None,
+        save_total_limit=10,
     )
 
     hp_trainer = Trainer(
