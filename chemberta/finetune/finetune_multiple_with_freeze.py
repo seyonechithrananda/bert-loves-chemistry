@@ -214,18 +214,22 @@ def finetune_model_on_single_dataset(
         local_dir = pretrained_model_dir
 
     if use_final:
-        checkpoint_dir = os.path.join(local_dir, "final")
+        final_dir = os.path.join(local_dir, "final")
+        if os.path.isdir(final_dir):
+            checkpoint_dir = final_dir
+        else:
+            checkpoint_dir = get_latest_checkpoint(local_dir)
+            other_checkpoint_dirs = [
+                os.path.join(local_dir, x)
+                for x in os.listdir(local_dir)
+                if "checkpoint" in x
+            ]
+            other_checkpoint_dirs.remove(checkpoint_dir)
+            for dir in other_checkpoint_dirs:
+                shutil.rmtree(dir, ignore_errors=True)
 
     else:
-        checkpoint_dir = get_latest_checkpoint(local_dir)
-        other_checkpoint_dirs = [
-            os.path.join(local_dir, x)
-            for x in os.listdir(local_dir)
-            if "checkpoint" in x
-        ]
-        other_checkpoint_dirs.remove(checkpoint_dir)
-        for dir in other_checkpoint_dirs:
-            shutil.rmtree(dir, ignore_errors=True)
+        checkpoint_dir = local_dir
 
     assert os.path.isdir(
         checkpoint_dir
