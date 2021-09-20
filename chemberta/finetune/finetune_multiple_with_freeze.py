@@ -83,7 +83,7 @@ flags.DEFINE_boolean(
 flags.DEFINE_boolean(
     name="use_final",
     default=True,
-    help="If true, use the `final` or last checkopint .",
+    help="If true, use the `final` or last checkopint. If false, assumes the pretrain_dir is the checkpoint dir.",
 )
 
 # Train params
