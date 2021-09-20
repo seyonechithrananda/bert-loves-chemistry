@@ -80,6 +80,11 @@ flags.DEFINE_boolean(
     default=True,
     help="If true, assumes all dataset are MolNet datasets.",
 )
+flags.DEFINE_boolean(
+    name="use_final",
+    default=True,
+    help="If true, use the `final` or last checkopint .",
+)
 
 # Train params
 flags.DEFINE_integer(name="logging_steps", default=10, help="")
@@ -173,6 +178,7 @@ def main(argv):
                     dataset_type,
                     run_dir,
                     is_molnet,
+                    use_final=FLAGS.use_final,
                 )
 
 
@@ -213,6 +219,7 @@ def finetune_model_on_single_dataset(
     else:
         local_dir = pretrained_model_dir
 
+    # Get `final` checkpoint if available, else get last checkpoint
     if use_final:
         final_dir = os.path.join(local_dir, "final")
         if os.path.isdir(final_dir):
@@ -228,6 +235,7 @@ def finetune_model_on_single_dataset(
             for dir in other_checkpoint_dirs:
                 shutil.rmtree(dir, ignore_errors=True)
 
+    # Assume directory passed IS the checkpoint dir
     else:
         checkpoint_dir = local_dir
 
