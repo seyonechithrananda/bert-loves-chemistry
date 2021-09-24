@@ -27,16 +27,11 @@ python finetune.py --datasets=bbbp
 import json
 import os
 import shutil
-import subprocess
 import tempfile
-from collections import OrderedDict
-from dataclasses import dataclass
 from glob import glob
-from typing import List
 
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 import seaborn as sns
 import torch
 from absl import app, flags
@@ -51,7 +46,13 @@ from sklearn.metrics import (
 from transformers import RobertaConfig, RobertaTokenizerFast, Trainer, TrainingArguments
 from transformers.trainer_callback import EarlyStoppingCallback
 
-from chemberta.utils.molnet_dataloader import get_dataset_info, load_molnet_dataset
+from chemberta.finetune.utils import (
+    get_finetune_datasets,
+    get_latest_checkpoint,
+    prune_state_dict,
+)
+from chemberta.utils.cloud import check_cloud, sync_with_s3
+from chemberta.utils.molnet_dataloader import get_dataset_info
 from chemberta.utils.roberta_regression import (
     RobertaForRegression,
     RobertaForSequenceClassification,
@@ -93,6 +94,11 @@ flags.DEFINE_integer(
     name="n_seeds",
     default=5,
     help="Number of unique random seeds to try. This only applies to the final best model selected after hyperparameter tuning.",
+)
+flags.DEFINE_integer(
+    name="save_total_limit",
+    default=3,
+    help="Total number of checkpoints to save per model configuration.",
 )
 
 # Dataset params
@@ -252,7 +258,9 @@ def finetune_model_on_single_dataset(
     finetune_datasets = get_finetune_datasets(dataset_name, tokenizer, is_molnet)
 
     if check_cloud(pretrained_model_dir):
-        local_dir = tempfile.mkdtemp()
+        local_dir = os.path.join(
+            tempfile.gettempdir(), os.sep.join(pretrained_model_dir.split(os.sep)[2:])
+        )
         print(f"Syncing {pretrained_model_dir} to {local_dir}")
         sync_with_s3(pretrained_model_dir, local_dir)
 
@@ -264,6 +272,14 @@ def finetune_model_on_single_dataset(
 
     else:
         checkpoint_dir = get_latest_checkpoint(local_dir)
+        other_checkpoint_dirs = [
+            os.path.join(local_dir, x)
+            for x in os.listdir(local_dir)
+            if "checkpoint" in x
+        ]
+        other_checkpoint_dirs.remove(checkpoint_dir)
+        for dir in other_checkpoint_dirs:
+            shutil.rmtree(dir, ignore_errors=True)
 
     assert os.path.isdir(
         checkpoint_dir
@@ -353,6 +369,7 @@ def finetune_model_on_single_dataset(
         logging_steps=FLAGS.logging_steps,
         load_best_model_at_end=True,
         report_to=None,
+        save_total_limit=FLAGS.save_total_limit,
     )
 
     hp_trainer = Trainer(
@@ -471,67 +488,8 @@ def eval_model(trainer, dataset, dataset_name, dataset_type, output_dir, random_
     return metrics
 
 
-def get_finetune_datasets(dataset_name, tokenizer, is_molnet):
-    if is_molnet:
-        tasks, (train_df, valid_df, test_df), _ = load_molnet_dataset(
-            dataset_name, split=FLAGS.split, df_format="chemprop"
-        )
-        assert len(tasks) == 1
-    else:
-        train_df = pd.read_csv(os.path.join(dataset_name, "train.csv"))
-        valid_df = pd.read_csv(os.path.join(dataset_name, "valid.csv"))
-        test_df = pd.read_csv(os.path.join(dataset_name, "test.csv"))
-
-    train_dataset = FinetuneDataset(train_df, tokenizer)
-    valid_dataset = FinetuneDataset(valid_df, tokenizer)
-    valid_dataset_unlabeled = FinetuneDataset(valid_df, tokenizer, include_labels=False)
-    test_dataset = FinetuneDataset(test_df, tokenizer, include_labels=False)
-
-    num_labels = len(np.unique(train_dataset.labels))
-    norm_mean = [np.mean(np.array(train_dataset.labels), axis=0)]
-    norm_std = [np.std(np.array(train_dataset.labels), axis=0)]
-
-    return FinetuneDatasets(
-        train_dataset,
-        valid_dataset,
-        valid_dataset_unlabeled,
-        test_dataset,
-        num_labels,
-        norm_mean,
-        norm_std,
-    )
-
-
 def get_dataset_name(dataset_name_or_path):
     return os.path.splitext(os.path.basename(dataset_name_or_path))[0]
-
-
-@dataclass
-class FinetuneDatasets:
-    train_dataset: str
-    valid_dataset: torch.utils.data.Dataset
-    valid_dataset_unlabeled: torch.utils.data.Dataset
-    test_dataset: torch.utils.data.Dataset
-    num_labels: int
-    norm_mean: List[float]
-    norm_std: List[float]
-
-
-class FinetuneDataset(torch.utils.data.Dataset):
-    def __init__(self, df, tokenizer, include_labels=True):
-
-        self.encodings = tokenizer(df["smiles"].tolist(), truncation=True, padding=True)
-        self.labels = df.iloc[:, 1].values
-        self.include_labels = include_labels
-
-    def __getitem__(self, idx):
-        item = {key: torch.tensor(val[idx]) for key, val in self.encodings.items()}
-        if self.include_labels and self.labels is not None:
-            item["labels"] = torch.tensor(self.labels[idx])
-        return item
-
-    def __len__(self):
-        return len(self.encodings["input_ids"])
 
 
 if __name__ == "__main__":
