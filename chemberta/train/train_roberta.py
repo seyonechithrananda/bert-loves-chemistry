@@ -166,6 +166,7 @@ def main(argv):
                 full_cloud_dir,
                 "--acl",
                 "bucket-owner-full-control",
+                "--delete",
             ]
         )
 

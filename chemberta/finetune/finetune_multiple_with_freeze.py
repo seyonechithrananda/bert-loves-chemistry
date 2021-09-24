@@ -26,7 +26,6 @@ python finetune.py --datasets=bbbp
 """
 import json
 import os
-import s3fs
 import shutil
 import subprocess
 import tempfile
@@ -188,6 +187,7 @@ def sync_with_s3(source_dir: str, target_dir: str):
             target_dir,
             "--acl",
             "bucket-owner-full-control",
+            "--delete",
         ]
     )
     return

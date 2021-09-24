@@ -238,6 +238,7 @@ class AwsS3Callback(TrainerCallback):
                 self.s3_directory,
                 "--acl",
                 "bucket-owner-full-control",
+                "--delete",
             ]
         )
         return
