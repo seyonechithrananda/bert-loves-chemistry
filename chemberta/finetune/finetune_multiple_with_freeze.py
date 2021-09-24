@@ -29,25 +29,12 @@ import os
 import shutil
 import tempfile
 from glob import glob
-from typing import List
 
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 import seaborn as sns
 import torch
 from absl import app, flags
-from chemberta.finetune.utils import (
-    get_finetune_datasets,
-    get_latest_checkpoint,
-    prune_state_dict,
-)
-from chemberta.utils.cloud import check_cloud, sync_with_s3
-from chemberta.utils.molnet_dataloader import get_dataset_info, load_molnet_dataset
-from chemberta.utils.roberta_regression import (
-    RobertaForRegression,
-    RobertaForSequenceClassification,
-)
 from scipy.special import softmax
 from scipy.stats import pearsonr
 from sklearn.metrics import (
@@ -58,6 +45,18 @@ from sklearn.metrics import (
 )
 from transformers import RobertaConfig, RobertaTokenizerFast, Trainer, TrainingArguments
 from transformers.trainer_callback import EarlyStoppingCallback
+
+from chemberta.finetune.utils import (
+    get_finetune_datasets,
+    get_latest_checkpoint,
+    prune_state_dict,
+)
+from chemberta.utils.cloud import check_cloud, sync_with_s3
+from chemberta.utils.molnet_dataloader import get_dataset_info
+from chemberta.utils.roberta_regression import (
+    RobertaForRegression,
+    RobertaForSequenceClassification,
+)
 
 FLAGS = flags.FLAGS
 
@@ -174,6 +173,61 @@ def main(argv):
                     run_dir,
                     is_molnet,
                 )
+
+
+def check_cloud(path: str):
+    """Naive check to if the path is a cloud path"""
+    if path.startswith("s3:"):
+        return True
+    return False
+
+
+def sync_with_s3(source_dir: str, target_dir: str):
+    """Sync source_dir directory with target_dir"""
+    subprocess.check_call(
+        [
+            "aws",
+            "s3",
+            "sync",
+            source_dir,
+            target_dir,
+            "--acl",
+            "bucket-owner-full-control",
+            "--delete",
+        ]
+    )
+    return
+
+
+def get_latest_checkpoint(saved_model_dir):
+    """Get the folder for the latest checkpoint"""
+    iters = [
+        int(x.split("-")[-1]) for x in os.listdir(saved_model_dir) if "checkpoint" in x
+    ]
+    iters.sort()
+    latest_checkpoint_dir = os.path.join(saved_model_dir, f"checkpoint-{iters[-1]}")
+    return latest_checkpoint_dir
+
+
+def prune_state_dict(model_dir):
+    """Remove problematic keys from state dictionary"""
+    if not (model_dir and os.path.exists(os.path.join(model_dir, "pytorch_model.bin"))):
+        return None
+
+    state_dict_path = os.path.join(model_dir, "pytorch_model.bin")
+    assert os.path.exists(
+        state_dict_path
+    ), f"No `pytorch_model.bin` file found in {model_dir}"
+    loaded_state_dict = torch.load(state_dict_path)
+    state_keys = loaded_state_dict.keys()
+    keys_to_remove = [
+        k for k in state_keys if k.startswith("regression") or k.startswith("norm")
+    ]
+
+    new_state_dict = OrderedDict({**loaded_state_dict})
+    for k in keys_to_remove:
+        del new_state_dict[k]
+    return new_state_dict
 
 
 def finetune_model_on_single_dataset(
