@@ -17,7 +17,7 @@ This library is currently primarily a set of notebooks with our pre-training and
 I hope this is of use to developers, students and researchers exploring the use of transformers and the attention mechanism for chemistry!
 
 # Citing Our Work
-Please cite ChemBERTa's [ArXiv](https://arxiv.org/abs/2010.09885) paper if you have used these models, notebooks, or examples in any way. The link to the BibTex is available [here](https://scholar.googleusercontent.com/scholar.bib?q=info:FzDMp7nctLUJ:scholar.google.com/&output=citation&scisdr=CgWWnePlEM-dmmZXtDE:AAGBfm0AAAAAX5RSrDGmJTVdPMFfzRSs5UY9lD4iRvvd&scisig=AAGBfm0AAAAAX5RSrGbFzGg583aNAYQw1Lap1K79xkEm&scisf=4&ct=citation&cd=-1&hl=en).
+Please cite ChemBERTa-2's [ArXiv](https://arxiv.org/abs/2209.01712) paper if you have used these models, notebooks, or examples in any way. The link to the BibTex is available [here](https://scholar.googleusercontent.com/scholar.bib?q=info:FzDMp7nctLUJ:scholar.google.com/&output=citation&scisdr=CgWWnePlEM-dmmZXtDE:AAGBfm0AAAAAX5RSrDGmJTVdPMFfzRSs5UY9lD4iRvvd&scisig=AAGBfm0AAAAAX5RSrGbFzGg583aNAYQw1Lap1K79xkEm&scisf=4&ct=citation&cd=-1&hl=en).
 
 # Example
 You can load the tokenizer + model for MLM prediction tasks using the following code:
@@ -31,10 +31,6 @@ tokenizer = AutoTokenizer.from_pretrained("seyonec/ChemBERTa-zinc-base-v1")
 
 fill_mask = pipeline('fill-mask', model=model, tokenizer=tokenizer)
 ```
-
-# Citation:
-Please cite the [ChemBERTA-2 paper](https://arxiv.org/abs/2209.01712).
-
 
 # Todo:
 - [x]  Official DeepChem implementation of ChemBERTa using model API (In progress)
