@@ -2,7 +2,8 @@
 ChemBERTa: A collection of BERT-like models applied to chemical SMILES data for drug design, chemical modelling, and property prediction. To be presented at [Baylearn](https://baylearn2020.splashthat.com/) and the [Royal Society of Chemistry's Chemical Science Symposium](https://www.rsc.org/events/detail/42791/chemical-science-symposium-2020-how-can-machine-learning-and-autonomy-accelerate-chemistry).
 
 [Tutorial](https://github.com/deepchem/deepchem/blob/master/examples/tutorials/Transfer_Learning_With_ChemBERTa_Transformers.ipynb) <br />
-[Arxiv Paper](https://arxiv.org/abs/2010.09885) <br />
+[ArXiv ChemBERTa-2 Paper](https://arxiv.org/abs/2209.01712) <br />
+[Arxiv ChemBERTa Paper](https://arxiv.org/abs/2010.09885) <br />
 [Poster](https://chemsci20.ipostersessions.com/Default.aspx?s=99-39-E6-B6-B0-0E-E1-D8-FB-66-1A-44-DC-A3-43-BA) <br />
 [Abstract](https://t.co/dkA5rMvYrE?amp=1) <br />
 [BibTex](https://scholar.googleusercontent.com/scholar.bib?q=info:FzDMp7nctLUJ:scholar.google.com/&output=citation&scisdr=CgWWnePlEM-dmmZXtDE:AAGBfm0AAAAAX5RSrDGmJTVdPMFfzRSs5UY9lD4iRvvd&scisig=AAGBfm0AAAAAX5RSrGbFzGg583aNAYQw1Lap1K79xkEm&scisf=4&ct=citation&cd=-1&hl=en)
@@ -30,10 +31,13 @@ tokenizer = AutoTokenizer.from_pretrained("seyonec/ChemBERTa-zinc-base-v1")
 
 fill_mask = pipeline('fill-mask', model=model, tokenizer=tokenizer)
 ```
-The abstract for this method is detailed [here](https://t.co/dkA5rMvYrE?amp=1). We expect to release a full paper on Arxiv in end-August.
+
+# Citation:
+Please cite the [ChemBERTA-2 paper](https://arxiv.org/abs/2209.01712).
+
 
 # Todo:
-- [ ]  Official DeepChem implementation of ChemBERTa using model API (In progress)
+- [x]  Official DeepChem implementation of ChemBERTa using model API (In progress)
 - [X]  Open-source attention visualization suite used in paper (After formal publication - Beginning of September).
 - [x]  Release larger pre-trained models, and support for a wider array of property prediction tasks (BBBP, etc). - See [HuggingFace](https://huggingface.co/seyonec)
 - [x]  Finish writing notebook to train model
