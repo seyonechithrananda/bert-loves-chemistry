@@ -79,6 +79,11 @@ flags.DEFINE_boolean(
     default=True,
     help="If true, assumes all dataset are MolNet datasets.",
 )
+flags.DEFINE_boolean(
+    name="use_final",
+    default=True,
+    help="If true, use the `final` or last checkopint. If false, assumes the pretrain_dir is the checkpoint dir.",
+)
 
 # Train params
 flags.DEFINE_integer(name="logging_steps", default=10, help="")
@@ -172,6 +177,7 @@ def main(argv):
                     dataset_type,
                     run_dir,
                     is_molnet,
+                    use_final=FLAGS.use_final,
                 )
 
 
@@ -267,19 +273,25 @@ def finetune_model_on_single_dataset(
     else:
         local_dir = pretrained_model_dir
 
+    # Get `final` checkpoint if available, else get last checkpoint
     if use_final:
-        checkpoint_dir = os.path.join(local_dir, "final")
+        final_dir = os.path.join(local_dir, "final")
+        if os.path.isdir(final_dir):
+            checkpoint_dir = final_dir
+        else:
+            checkpoint_dir = get_latest_checkpoint(local_dir)
+            other_checkpoint_dirs = [
+                os.path.join(local_dir, x)
+                for x in os.listdir(local_dir)
+                if "checkpoint" in x
+            ]
+            other_checkpoint_dirs.remove(checkpoint_dir)
+            for dir in other_checkpoint_dirs:
+                shutil.rmtree(dir, ignore_errors=True)
 
+    # Assume directory passed IS the checkpoint dir
     else:
-        checkpoint_dir = get_latest_checkpoint(local_dir)
-        other_checkpoint_dirs = [
-            os.path.join(local_dir, x)
-            for x in os.listdir(local_dir)
-            if "checkpoint" in x
-        ]
-        other_checkpoint_dirs.remove(checkpoint_dir)
-        for dir in other_checkpoint_dirs:
-            shutil.rmtree(dir, ignore_errors=True)
+        checkpoint_dir = local_dir
 
     assert os.path.isdir(
         checkpoint_dir
