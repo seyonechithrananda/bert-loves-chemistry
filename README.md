@@ -40,6 +40,28 @@ tokenizer = AutoTokenizer.from_pretrained("seyonec/ChemBERTa-zinc-base-v1")
 fill_mask = pipeline('fill-mask', model=model, tokenizer=tokenizer)
 ```
 
+## Usage / Installation
+You can load the tokenizer and model for Masked Language Modeling (MLM) prediction tasks using Hugging Face:
+
+```python
+from transformers import AutoModelWithLMHead, AutoTokenizer, pipeline
+model = AutoModelWithLMHead.from_pretrained("seyonec/ChemBERTa-zinc-base-v1")
+tokenizer = AutoTokenizer.from_pretrained("seyonec/ChemBERTa-zinc-base-v1")
+```
+
+
+## Training Data
+ChemBERTa models are pre-trained on various subsets of canonicalized chemical SMILES data, including **ZINC** (100k, 250k) and **PubChem** (100k, 250k, 1M, 10M).
+
+## Evaluation and Benchmarks
+The model was fine-tuned and evaluated on standard property prediction tasks from **MoleculeNet** (including BBBP, ClinTox, HIV, and Tox21). Detailed ROC-AUC and PRC-AUC comparisons against baseline Graph Neural Networks (like D-MPNNs) are available in the ChemBERTa paper.
+
+## Limitations and Risks
+Predictions are inherently limited to the chemical space represented in the ZINC and PubChem training subsets. The model may exhibit reduced accuracy or unexpected behavior when evaluating highly novel, out-of-distribution molecular structures, or macromolecules not well-represented in the pre-training corpus.
+
+## License
+This project is licensed under the **MIT License**.
+
 # Todo:
 - [x]  Official DeepChem implementation of ChemBERTa using model API (In progress)
 - [X]  Open-source attention visualization suite used in paper (After formal publication - Beginning of September).
